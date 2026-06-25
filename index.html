@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payroll Salary Upload File Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --navy:#0d2b4e; --navy-l:#1a3f6f; --navy-d:#081c33;
+  --gold:#c9a84c; --gold-l:#e8c96a;
+  --bg:#f0f4f8; --card:#fff; --border:#d0dae6;
+  --text:#1e2d3d; --muted:#5a6e82;
+  --ok:#1a7f4b; --ok-bg:#e6f4ed;
+  --err:#c0392b; --err-bg:#fdecea;
+  --warn:#b7770d; --warn-bg:#fef3e2;
+  --sh:0 2px 8px rgba(13,43,78,.10);
+  --shl:0 4px 20px rgba(13,43,78,.15);
+  --r:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+button,input,select{font-family:inherit;font-size:13px;cursor:pointer}
+input,select{cursor:text}
+
+/* HEADER */
+.hdr{background:linear-gradient(135deg,var(--navy-d),var(--navy) 60%,var(--navy-l));color:#fff;
+  padding:0 24px;display:flex;align-items:center;justify-content:space-between;
+  height:60px;box-shadow:var(--shl);position:sticky;top:0;z-index:200}
+.logo{width:40px;height:40px;border-radius:7px;background:var(--gold);display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:17px;color:var(--navy-d);flex-shrink:0}
+.htitle{font-size:16px;font-weight:700}.hsubtitle{font-size:11px;color:rgba(255,255,255,.6);margin-top:1px}
+.hcontrols{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hsel{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;
+  padding:5px 9px;border-radius:5px;font-size:12px;outline:none}
+.hsel option{background:var(--navy)}
+.priv{background:rgba(201,168,76,.18);border:1px solid rgba(201,168,76,.4);
+  color:var(--gold-l);padding:3px 9px;border-radius:20px;font-size:11px}
+
+/* PAGE */
+.page{max-width:1300px;margin:0 auto;padding:20px 18px 40px}
+
+/* SECTION CARD */
+.sec{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);
+  border:1px solid var(--border);margin-bottom:18px;overflow:hidden}
+.sec-hdr{padding:12px 18px;background:linear-gradient(to right,#f6f9fc,#fff);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;
+  justify-content:space-between;flex-wrap:wrap;gap:8px}
+.sec-title{font-size:14px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:7px}
+.sec-body{padding:18px}
+
+/* SUMMARY GRID */
+.sumgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:18px}
+.scard{background:var(--card);border-radius:var(--r);border:1px solid var(--border);
+  padding:14px 16px;position:relative;overflow:hidden;box-shadow:var(--sh)}
+.scard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.scard.c1::before{background:var(--navy)}.scard.c2::before{background:#1565c0}
+.scard.c3::before{background:#6a1b9a}.scard.c4::before{background:var(--gold)}
+.scard.c5::before{background:#0288d1}.scard.c6::before{background:#7b1fa2}
+.scard.c7::before{background:#2e7d32}.scard.c8::before{background:#00838f}
+.sc-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.sc-val{font-size:22px;font-weight:700;color:var(--navy);line-height:1}
+.sc-val.sm{font-size:15px}
+
+/* TWO-COL for sheet previews */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+
+/* UPLOAD */
+.dropzone{border:2px dashed var(--border);border-radius:var(--r);padding:32px;
+  text-align:center;background:#f8fafc;transition:.2s;cursor:pointer;position:relative}
+.dropzone:hover,.dropzone.over{border-color:var(--navy);background:#eef3fa}
+.dropzone h3{color:var(--navy);margin-bottom:6px;font-size:15px}
+.dropzone p{color:var(--muted);font-size:12px;margin-top:4px}
+.dz-icon{font-size:40px;margin-bottom:10px}
+.file-chip{display:inline-flex;align-items:center;gap:7px;background:#e8f0fe;
+  border:1px solid #b3c8f5;border-radius:20px;padding:4px 12px;font-size:12px;
+  color:var(--navy);font-weight:600;margin-top:8px}
+
+/* SHEET PILLS */
+.sheet-pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;
+  border:1px solid transparent}
+.pill-blue{background:#dbeafe;color:#1e40af;border-color:#bfdbfe}
+.pill-purple{background:#ede9fe;color:#5b21b6;border-color:#ddd6fe}
+.pill-green{background:var(--ok-bg);color:var(--ok)}
+.pill-red{background:var(--err-bg);color:var(--err)}
+.pill-gold{background:#fef9e7;color:#92400e;border-color:#fde68a}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:0 0 var(--r) var(--r);max-height:340px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--navy);color:#fff;padding:8px 10px;text-align:left;
+  font-weight:600;white-space:nowrap;position:sticky;top:0;z-index:10}
+tbody tr{border-bottom:1px solid #edf2f7}
+tbody tr:hover{background:#f5f8ff}
+tbody tr.skip-row{background:#fff8e1;color:#92400e}
+tbody tr.err-row{background:#fff5f5}
+tbody td{padding:6px 10px;vertical-align:middle}
+.tfoot{padding:8px 14px;background:#f8fafc;border-top:1px solid var(--border);
+  font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:6px;
+  font-size:13px;font-weight:500;border:none;transition:.15s;white-space:nowrap}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover{background:var(--navy-l)}
+.btn-gold{background:var(--gold);color:var(--navy-d);font-weight:700}
+.btn-gold:hover{background:var(--gold-l)}
+.btn-ok{background:var(--ok);color:#fff}.btn-ok:hover{background:#15663d}
+.btn-out{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-out:hover{background:var(--bg)}
+.btn-err{background:var(--err);color:#fff}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-lg{padding:10px 20px;font-size:14px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* VALIDATION */
+.vsum{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.vbox{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:500}
+.vbox.ok{background:var(--ok-bg);color:var(--ok)}.vbox.err{background:var(--err-bg);color:var(--err)}
+.vbox.warn{background:var(--warn-bg);color:var(--warn)}
+
+/* FILE PREVIEW BOX */
+.fpreview{background:#1a1a2e;color:#e8eaf6;font-family:'Courier New',monospace;
+  font-size:11px;padding:12px;border-radius:6px;overflow-x:auto;max-height:220px;
+  overflow-y:auto;white-space:pre;line-height:1.65;border:1px solid #333;margin-top:8px}
+.fpreview .hl{color:var(--gold-l);font-weight:700}
+.lnum{color:#555;user-select:none;margin-right:10px}
+
+/* GENERATE PANEL */
+.gen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.gcard{border:1px solid var(--border);border-radius:var(--r);padding:16px;
+  background:linear-gradient(135deg,#f8fafc,#fff)}
+.gcard-title{font-weight:700;color:var(--navy);margin-bottom:4px;font-size:13px}
+.gcard-sub{font-size:11px;color:var(--muted);margin-bottom:12px}
+.fname{font-family:monospace;background:#e8f0fe;color:#1a3f6f;padding:3px 8px;
+  border-radius:4px;font-size:12px;font-weight:700}
+
+/* HDFC ACCOUNT INPUT */
+.accbox{background:#f0f6ff;border:1px solid #b3cdf5;border-radius:7px;
+  padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;
+  gap:12px;flex-wrap:wrap}
+.accbox label{font-weight:600;color:var(--navy);font-size:13px;white-space:nowrap}
+.accinput{border:1px solid var(--border);border-radius:5px;padding:7px 10px;
+  font-size:14px;font-family:monospace;letter-spacing:.5px;width:220px}
+
+/* ALERTS */
+.alert{padding:10px 14px;border-radius:6px;font-size:13px;
+  display:flex;align-items:flex-start;gap:8px;margin-bottom:12px}
+.alert-info{background:#e8f4fd;color:#0d6efd;border-left:4px solid #0d6efd}
+.alert-ok{background:var(--ok-bg);color:var(--ok);border-left:4px solid var(--ok)}
+.alert-err{background:var(--err-bg);color:var(--err);border-left:4px solid var(--err)}
+.alert-warn{background:var(--warn-bg);color:var(--warn);border-left:4px solid var(--warn)}
+
+/* LOADING */
+#overlay{display:none;position:fixed;inset:0;background:rgba(13,43,78,.6);
+  z-index:9999;align-items:center;justify-content:center}
+#overlay.on{display:flex}
+.ldbox{background:#fff;border-radius:10px;padding:28px 36px;text-align:center;box-shadow:var(--shl)}
+.spin{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--navy);
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* MISC */
+.flex{display:flex}.gap2{gap:8px}.gap3{gap:12px}.wrap{flex-wrap:wrap}
+.items-c{align-items:center}.jbet{justify-content:space-between}
+.mt1{margin-top:6px}.mt2{margin-top:10px}.mt3{margin-top:16px}
+.mb2{margin-bottom:10px}.fw6{font-weight:600}
+.empty{text-align:center;padding:36px;color:var(--muted)}
+.empty .ei{font-size:40px;margin-bottom:10px}
+.tag{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-b{background:#dbeafe;color:#1e40af}.tag-p{background:#ede9fe;color:#5b21b6}
+.tag-g{background:var(--ok-bg);color:var(--ok)}.tag-r{background:var(--err-bg);color:var(--err)}
+.divider{border:none;border-top:1px solid var(--border);margin:14px 0}
+footer{background:var(--navy-d);color:rgba(255,255,255,.45);text-align:center;
+  padding:10px;font-size:11px;margin-top:20px}
+footer span{color:var(--gold)}
+</style>
+</head>
+<body>
+
+<div id="overlay"><div class="ldbox"><div class="spin"></div><p id="ldmsg">Processing...</p></div></div>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="flex gap2 items-c" style="gap:12px">
+    <div class="logo">YC</div>
+    <div><div class="htitle">YOUR COMPANY</div><div class="hsubtitle">Payroll Salary Upload File Generator</div></div>
+  </div>
+  <div class="hcontrols">
+    <select class="hsel" id="selMonth">
+      <option value="">-- Month --</option>
+      <option>January</option><option>February</option><option>March</option><option>April</option>
+      <option>May</option><option>June</option><option>July</option><option>August</option>
+      <option>September</option><option>October</option><option>November</option><option>December</option>
+    </select>
+    <select class="hsel" id="selFY">
+      <option value="">-- FY --</option>
+      <option>2023-24</option><option>2024-25</option><option>2025-26</option><option>2026-27</option>
+    </select>
+    <div class="priv">🔒 Offline &amp; Private</div>
+  </div>
+</header>
+
+<div class="page">
+
+<!-- ══════════════════════════════════════════
+     SECTION 1 — DASHBOARD SUMMARY
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hdr">
+    <div class="sec-title">📊 Dashboard Summary</div>
+    <div id="dashPeriod" style="font-size:12px;color:var(--muted)"></div>
+  </div>
+  <div class="sec-body">
+    <!-- 8 summary cards: Sheet1 HDFC/NonHDFC + Sheet2 OT HDFC/NonHDFC -->
+    <div class="sumgrid">
+      <div class="scard c1"><div class="sc-lbl">Total Employees (S1)</div><div class="sc-val" id="s1tot">0</div></div>
+      <div class="scard c2"><div class="sc-lbl">S1 — HDFC Count</div><div class="sc-val" id="s1hc">0</div></div>
+      <div class="scard c3"><div class="sc-lbl">S1 — Non-HDFC Count</div><div class="sc-val" id="s1nc">0</div></div>
+      <div class="scard c4"><div class="sc-lbl">S1 — Total Salary</div><div class="sc-val sm" id="s1ta">₹0</div></div>
+      <div class="scard c7"><div class="sc-lbl">Total Employees (S2 OT)</div><div class="sc-val" id="s2tot">0</div></div>
+      <div class="scard c5"><div class="sc-lbl">S2 — OT HDFC Count</div><div class="sc-val" id="s2hc">0</div></div>
+      <div class="scard c6"><div class="sc-lbl">S2 — OT Non-HDFC Count</div><div class="sc-val" id="s2nc">0</div></div>
+      <div class="scard c8"><div class="sc-lbl">S2 — Total OT Amount</div><div class="sc-val sm" id="s2ta">₹0</div></div>
+    </div>
+    <div id="skipNotice" class="alert alert-warn" style="display:none">
+      ⚠️ <span id="skipMsg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 2 — UPLOAD
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hdr">
+    <div class="sec-title">📂 Upload Bank Advice Excel</div>
+    <div class="flex gap2">
+      <button class="btn btn-out btn-sm" onclick="clearAll()">🗑 Clear</button>
+      <button class="btn btn-gold btn-sm" onclick="document.getElementById('fi').click()">📤 Browse File</button>
+    </div>
+  </div>
+  <div class="sec-body">
+    <div class="dropzone" id="dz" onclick="document.getElementById('fi').click()"
+         ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+      <div class="dz-icon">📊</div>
+      <h3>Drop Bank Advice Excel here or click to browse</h3>
+      <p>Excel must have 2 sheets: <strong>Sheet 1</strong> (Regular Salary) &amp; <strong>Sheet 2</strong> (Overtime)</p>
+      <p class="mt1">Rows with <strong>Cheque</strong> or <strong>Hold</strong> entries will be automatically skipped</p>
+      <div id="dzChip" style="display:none" class="mt2"></div>
+    </div>
+    <input type="file" id="fi" accept=".xlsx,.xls" onchange="onFileInput(event)" style="display:none">
+
+    <!-- Sheet 1 Preview -->
+    <div id="s1Section" style="display:none" class="mt3">
+      <div class="divider"></div>
+      <div class="fw6 mb2" style="color:var(--navy);font-size:13px">📋 Sheet 1 — Regular Salary</div>
+      <div class="sheet-pills" id="s1pills"></div>
+      <div class="tbl-wrap"><table id="s1tbl">
+        <thead><tr id="s1hdr"></tr></thead>
+        <tbody id="s1body"></tbody>
+      </table></div>
+      <div class="tfoot"><span id="s1foot1"></span><span id="s1foot2"></span></div>
+    </div>
+
+    <!-- Sheet 2 Preview -->
+    <div id="s2Section" style="display:none" class="mt3">
+      <div class="divider"></div>
+      <div class="fw6 mb2" style="color:var(--navy);font-size:13px">📋 Sheet 2 — Overtime</div>
+      <div class="sheet-pills" id="s2pills"></div>
+      <div class="tbl-wrap"><table id="s2tbl">
+        <thead><tr id="s2hdr"></tr></thead>
+        <tbody id="s2body"></tbody>
+      </table></div>
+      <div class="tfoot"><span id="s2foot1"></span><span id="s2foot2"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 3 — VALIDATE
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hdr">
+    <div class="sec-title">✅ Validate Data</div>
+    <button class="btn btn-navy btn-sm" onclick="runValidation()">▶ Run Validation</button>
+  </div>
+  <div class="sec-body" id="valBody">
+    <div class="empty"><div class="ei">🔍</div><p>Upload the Bank Advice file and click <strong>Run Validation</strong>.</p></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 4 — GENERATE FILES
+════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hdr">
+    <div class="sec-title">🏦 Generate Bank Upload Files</div>
+    <div class="flex gap2 items-c flex-wrap" id="fileNamesPreview"></div>
+  </div>
+  <div class="sec-body">
+    <div class="accbox">
+      <label>🏦 Company HDFC Debit Account No:</label>
+      <input type="text" id="compAcc" class="accinput" placeholder="e.g. 50100123456789" maxlength="18">
+      <button class="btn btn-gold btn-lg" onclick="generateAll()">⚙️ Generate All 4 Files</button>
+    </div>
+
+    <!-- Serial number preview -->
+    <div class="alert alert-info mb2" id="serialInfo">
+      ℹ️ Files will be numbered in strict sequence: <strong>.01 → .02 → .03 → .04</strong> &nbsp;|&nbsp;
+      HDFC: <code>275TSAL[mmdd]</code> &nbsp;|&nbsp; Non-HDFC: <code>275NES[mmdd]</code>
+    </div>
+
+    <div class="gen-grid" id="genGrid">
+      <!-- Cards rendered after generation -->
+      <div class="gcard"><div class="gcard-title">🏦 S1 HDFC Salary</div>
+        <div class="gcard-sub">Regular salary — HDFC bank employees</div>
+        <div class="fname" id="fn1">275TSALmmdd.01</div>
+        <div id="fp1" class="fpreview" style="display:none"></div>
+        <div class="mt2"><button class="btn btn-navy btn-sm" id="dl1" onclick="dlFile(0)" disabled>⬇ Download</button></div>
+      </div>
+      <div class="gcard"><div class="gcard-title">🏛️ S1 Non-HDFC Salary</div>
+        <div class="gcard-sub">Regular salary — Non-HDFC bank employees (NEFT)</div>
+        <div class="fname" id="fn2">275NESmmdd.02</div>
+        <div id="fp2" class="fpreview" style="display:none"></div>
+        <div class="mt2"><button class="btn btn-navy btn-sm" id="dl2" onclick="dlFile(1)" disabled>⬇ Download</button></div>
+      </div>
+      <div class="gcard"><div class="gcard-title">⏱️ S2 OT HDFC</div>
+        <div class="gcard-sub">Overtime — HDFC bank employees</div>
+        <div class="fname" id="fn3">275TSALmmdd.03</div>
+        <div id="fp3" class="fpreview" style="display:none"></div>
+        <div class="mt2"><button class="btn btn-navy btn-sm" id="dl3" onclick="dlFile(2)" disabled>⬇ Download</button></div>
+      </div>
+      <div class="gcard"><div class="gcard-title">⏱️ S2 OT Non-HDFC</div>
+        <div class="gcard-sub">Overtime — Non-HDFC bank employees (NEFT)</div>
+        <div class="fname" id="fn4">275NESmmdd.04</div>
+        <div id="fp4" class="fpreview" style="display:none"></div>
+        <div class="mt2"><button class="btn btn-navy btn-sm" id="dl4" onclick="dlFile(3)" disabled>⬇ Download</button></div>
+      </div>
+    </div>
+
+    <!-- Download All -->
+    <div class="mt3 flex gap2 items-c flex-wrap">
+      <button class="btn btn-gold btn-lg" id="dlAll" onclick="downloadAll()" disabled>⬇ Download All 4 Files</button>
+      <span style="font-size:12px;color:var(--muted)">Files will download one by one</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<footer>🔒 <span>All data is processed locally in your browser. No data is sent to any server.</span>
+  &nbsp;|&nbsp; Payroll Salary Upload File Generator &nbsp;|&nbsp; For internal accounts use only.</footer>
+
+<script>
+/* =====================================================
+   PAYROLL SALARY UPLOAD FILE GENERATOR
+   100% browser-local — no server, no storage, no internet.
+   ===================================================== */
+
+// ═══════════════════════════════
+// STATE
+// ═══════════════════════════════
+let s1Rows = [];   // Sheet 1 parsed rows (all, including skipped)
+let s2Rows = [];   // Sheet 2 parsed rows
+let valErrors = [];
+let generatedFiles = [null, null, null, null]; // [s1hdfc, s1non, s2hdfc, s2non]
+
+// ═══════════════════════════════
+// LOADING
+// ═══════════════════════════════
+const ov = document.getElementById('overlay');
+const showLoad = m => { document.getElementById('ldmsg').textContent = m||'Processing...'; ov.classList.add('on'); };
+const hideLoad = () => ov.classList.remove('on');
+
+// ═══════════════════════════════
+// DATE HELPERS — use current date for filenames
+// ═══════════════════════════════
+function getTodayParts() {
+  const d = new Date();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return { mm, dd, mmdd: mm+dd, ddmm: dd+mm };
+}
+
+function parseDateToYYYYMMDD(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  let m;
+  // dd/mm/yyyy or dd-mm-yyyy
+  m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (m) return m[3] + m[2].padStart(2,'0') + m[1].padStart(2,'0');
+  // yyyy-mm-dd
+  m = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if (m) return m[1] + m[2].padStart(2,'0') + m[3].padStart(2,'0');
+  // already yyyymmdd
+  if (/^\d{8}$/.test(s)) return s;
+  return null;
+}
+
+function dateObjToDisplay(d) {
+  if (!(d instanceof Date)) return String(d||'');
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+}
+
+// ═══════════════════════════════
+// FILE NAME BUILDER
+// File naming rules:
+//   HDFC:     275TSAL + mmdd + '.' + serial (2 digits)
+//   Non-HDFC: 275NES  + mmdd + '.' + serial (2 digits)
+//   Serials run 01,02,03,04 across all 4 files in strict order:
+//     .01 = S1 HDFC, .02 = S1 Non-HDFC, .03 = S2 OT HDFC, .04 = S2 OT Non-HDFC
+// ═══════════════════════════════
+function buildFileNames() {
+  const { mmdd } = getTodayParts();
+  return [
+    `275TSAL${mmdd}.01`,  // S1 HDFC
+    `275NES${mmdd}.02`,   // S1 Non-HDFC
+    `275TSAL${mmdd}.03`,  // S2 OT HDFC
+    `275NES${mmdd}.04`,   // S2 OT Non-HDFC
+  ];
+}
+
+// ═══════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════
+function dzOver(e) { e.preventDefault(); document.getElementById('dz').classList.add('over'); }
+function dzLeave(e) { document.getElementById('dz').classList.remove('over'); }
+function dzDrop(e) {
+  e.preventDefault(); document.getElementById('dz').classList.remove('over');
+  const f = e.dataTransfer.files[0]; if (f) processFile(f);
+}
+function onFileInput(e) { const f = e.target.files[0]; if (f) processFile(f); e.target.value=''; }
+
+// ═══════════════════════════════
+// COLUMN MAPPING — flexible header detection
+// ═══════════════════════════════
+const COL_MAP = {
+  'employee code':'empCode','emp code':'empCode','empcode':'empCode','emp_code':'empCode','emp no':'empCode','empno':'empCode',
+  'employee name':'empName','emp name':'empName','name':'empName','beneficiary name':'empName',
+  'account number':'accountNo','account no':'accountNo','acc no':'accountNo','accountnumber':'accountNo','account':'accountNo','ac no':'accountNo',
+  'bank name':'bankName','bank':'bankName',
+  'ifsc code':'ifsc','ifsc':'ifsc','ifsc_code':'ifsc',
+  'branch name':'branch','branch':'branch',
+  'net salary':'salary','salary':'salary','net pay':'salary','amount':'salary','net amount':'salary','ot amount':'salary','overtime amount':'salary',
+  'payment date':'paymentDate','pay date':'paymentDate','date':'paymentDate',
+  'narration':'narration','description':'narration','remarks':'narration','particulars':'narration',
+  'mobile number':'mobile','mobile':'mobile','phone':'mobile',
+  'email id':'email','email':'email',
+  'mode':'mode','payment mode':'mode','type':'mode'  // used to detect cheque/hold
+};
+const normKey = k => String(k).toLowerCase().trim().replace(/[^a-z0-9 _]/g,'');
+
+function isHDFC(b) { return /hdfc/i.test(String(b)); }
+
+// Detect cheque or hold — checks ALL values in a row
+function isChequeOrHold(row) {
+  return Object.values(row).some(v => /cheque|hold/i.test(String(v||'')));
+}
+
+// ═══════════════════════════════
+// PROCESS FILE — read both sheets
+// ═══════════════════════════════
+function processFile(file) {
+  if (!file.name.match(/\.(xlsx|xls)$/i)) { showAlert('Please upload an Excel file (.xlsx or .xls)','err'); return; }
+  showLoad('Reading Excel file...');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type:'array', cellDates:true });
+      if (wb.SheetNames.length < 1) { hideLoad(); showAlert('Excel file has no sheets.','err'); return; }
+
+      // Read Sheet 1
+      const ws1 = wb.Sheets[wb.SheetNames[0]];
+      const raw1 = XLSX.utils.sheet_to_json(ws1, { defval:'' });
+
+      // Read Sheet 2 (may not exist)
+      const raw2 = wb.SheetNames.length >= 2
+        ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[1]], { defval:'' })
+        : [];
+
+      s1Rows = parseSheet(raw1, 1);
+      s2Rows = parseSheet(raw2, 2);
+
+      hideLoad();
+      renderSheetPreview(1);
+      renderSheetPreview(2);
+      updateDashboard();
+      updateFileNamePreviews();
+
+      // Show chip
+      const chip = document.getElementById('dzChip');
+      chip.style.display = '';
+      chip.innerHTML = `<span class="file-chip">📄 ${file.name} — Sheet1: ${s1Rows.length} rows | Sheet2: ${s2Rows.length} rows</span>`;
+
+      showAlert(`✅ Loaded ${file.name}: ${s1Rows.length} salary rows, ${s2Rows.length} OT rows`,'ok');
+    } catch(err) {
+      hideLoad(); showAlert('Error reading file: '+err.message,'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════
+// PARSE SHEET — map columns, flag skipped rows
+// ═══════════════════════════════
+function parseSheet(rows, sheetNum) {
+  if (!rows.length) return [];
+  const keys = Object.keys(rows[0]);
+  const fieldMap = {};
+  keys.forEach(k => { const n = normKey(k); if (COL_MAP[n]) fieldMap[k] = COL_MAP[n]; });
+
+  return rows.map((row, i) => {
+    const skip = isChequeOrHold(row);
+    const emp = {
+      _row: i+2, _sheet: sheetNum, _skip: skip,
+      _raw: row, // keep raw for table display
+      empCode:'', empName:'', accountNo:'', bankName:'',
+      ifsc:'', branch:'', salary:'', paymentDate:'',
+      narration:'Salary', mobile:'', email:'', mode:'',
+      _errors:[]
+    };
+    Object.keys(fieldMap).forEach(k => {
+      let v = row[k];
+      if (v instanceof Date) v = dateObjToDisplay(v);
+      emp[fieldMap[k]] = String(v===null||v===undefined?'':v).trim();
+    });
+    emp._isHDFC = isHDFC(emp.bankName);
+    return emp;
+  });
+}
+
+// ═══════════════════════════════
+// RENDER SHEET PREVIEW TABLE
+// ═══════════════════════════════
+function renderSheetPreview(sn) {
+  const rows = sn===1 ? s1Rows : s2Rows;
+  const sec = document.getElementById(`s${sn}Section`);
+  sec.style.display = rows.length ? '' : 'none';
+  if (!rows.length) return;
+
+  // Pills
+  const valid = rows.filter(r=>!r._skip);
+  const skipped = rows.filter(r=>r._skip);
+  const hdfc = valid.filter(r=>r._isHDFC);
+  const non  = valid.filter(r=>!r._isHDFC);
+  const totalAmt = valid.reduce((s,r)=>s+(parseFloat(r.salary)||0),0);
+  document.getElementById(`s${sn}pills`).innerHTML =
+    `<span class="pill pill-blue">Total: ${rows.length}</span>` +
+    `<span class="pill pill-green">✓ Valid: ${valid.length}</span>` +
+    (skipped.length?`<span class="pill pill-gold">⊘ Skipped (Cheque/Hold): ${skipped.length}</span>`:'') +
+    `<span class="pill pill-blue">HDFC: ${hdfc.length}</span>` +
+    `<span class="pill pill-purple">Non-HDFC: ${non.length}</span>` +
+    `<span class="pill pill-green">Total: ₹${totalAmt.toLocaleString('en-IN',{minimumFractionDigits:2})}</span>`;
+
+  // Headers from first row's raw keys
+  const rawKeys = Object.keys(rows[0]._raw);
+  document.getElementById(`s${sn}hdr`).innerHTML =
+    '<th>#</th><th>Status</th>' + rawKeys.map(k=>`<th>${esc(k)}</th>`).join('');
+
+  // Body (max 300 rows for perf)
+  const body = document.getElementById(`s${sn}body`);
+  body.innerHTML = rows.slice(0,300).map(r => {
+    const cls = r._skip ? 'skip-row' : (r._errors.length ? 'err-row' : '');
+    const statusBadge = r._skip
+      ? '<span class="tag tag-r">⊘ Skip</span>'
+      : '<span class="tag tag-g">✓</span>';
+    const cells = rawKeys.map(k=>`<td>${esc(String(r._raw[k]||''))}</td>`).join('');
+    return `<tr class="${cls}"><td style="color:var(--muted);font-size:11px">${r._row}</td><td>${statusBadge}</td>${cells}</tr>`;
+  }).join('');
+
+  const validAmt = formatINR(valid.reduce((s,r)=>s+(parseFloat(r.salary)||0),0));
+  document.getElementById(`s${sn}foot1`).textContent = `${valid.length} active rows${skipped.length?' ('+skipped.length+' skipped)':''}`;
+  document.getElementById(`s${sn}foot2`).textContent = `Active Total: ${validAmt}`;
+}
+
+// ═══════════════════════════════
+// DASHBOARD UPDATE
+// ═══════════════════════════════
+function updateDashboard() {
+  const upd = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+
+  const s1v = s1Rows.filter(r=>!r._skip);
+  const s2v = s2Rows.filter(r=>!r._skip);
+
+  upd('s1tot', s1Rows.length);
+  upd('s1hc',  s1v.filter(r=>r._isHDFC).length);
+  upd('s1nc',  s1v.filter(r=>!r._isHDFC).length);
+  upd('s1ta',  formatINR(s1v.reduce((s,r)=>s+(parseFloat(r.salary)||0),0)));
+
+  upd('s2tot', s2Rows.length);
+  upd('s2hc',  s2v.filter(r=>r._isHDFC).length);
+  upd('s2nc',  s2v.filter(r=>!r._isHDFC).length);
+  upd('s2ta',  formatINR(s2v.reduce((s,r)=>s+(parseFloat(r.salary)||0),0)));
+
+  const m = document.getElementById('selMonth').value;
+  const fy = document.getElementById('selFY').value;
+  document.getElementById('dashPeriod').textContent = [m, fy?'FY '+fy:''].filter(Boolean).join(' | ');
+
+  const skipped = [...s1Rows,...s2Rows].filter(r=>r._skip);
+  const skipNotice = document.getElementById('skipNotice');
+  if (skipped.length) {
+    skipNotice.style.display='';
+    document.getElementById('skipMsg').textContent =
+      `${skipped.length} row(s) with Cheque/Hold entries have been automatically skipped and will NOT be included in the generated files.`;
+  } else {
+    skipNotice.style.display='none';
+  }
+}
+
+function updateFileNamePreviews() {
+  const names = buildFileNames();
+  document.getElementById('fn1').textContent = names[0];
+  document.getElementById('fn2').textContent = names[1];
+  document.getElementById('fn3').textContent = names[2];
+  document.getElementById('fn4').textContent = names[3];
+  document.getElementById('fileNamesPreview').innerHTML =
+    names.map(n=>`<span class="fname" style="font-size:11px">${n}</span>`).join(' ');
+}
+
+// ═══════════════════════════════
+// VALIDATION
+// ═══════════════════════════════
+function runValidation() {
+  const all = [...s1Rows,...s2Rows];
+  if (!all.length) { showAlert('Upload the Bank Advice file first.','warn'); return; }
+  showLoad('Validating...');
+  setTimeout(()=>{
+    valErrors = [];
+    const accSeen = {}, codeSeen = {};
+
+    all.forEach(emp => {
+      if (emp._skip) return; // skip cheque/hold rows — they're excluded anyway
+      emp._errors = [];
+      const e = (field,msg) => { emp._errors.push({field,msg}); valErrors.push({row:emp._row,sheet:emp._sheet,code:emp.empCode,field,msg}); };
+
+      if (!emp.empName.trim()) e('Employee Name','Name is blank');
+      if (!emp.accountNo.trim()) e('Account Number','Account number is blank');
+      else if (!/^\d{9,18}$/.test(emp.accountNo.replace(/\s/g,''))) e('Account Number','Must be numeric 9–18 digits');
+      if (!emp.bankName.trim()) e('Bank Name','Bank name is blank');
+      if (!emp.ifsc.trim()) e('IFSC Code','IFSC is blank');
+      else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(emp.ifsc.toUpperCase())) e('IFSC Code','Invalid format (expect XXXX0XXXXXX)');
+      if (!emp.salary||isNaN(parseFloat(emp.salary))||parseFloat(emp.salary)<=0) e('Salary','Must be a positive number');
+      if (!emp.paymentDate) e('Payment Date','Missing');
+      else if (!parseDateToYYYYMMDD(emp.paymentDate)) e('Payment Date','Unrecognised format — use DD/MM/YYYY');
+      if (!emp.empCode.trim()) e('Emp Code','Employee code is blank');
+
+      const ak = emp.accountNo.trim();
+      if (ak) { if(accSeen[ak]) e('Account Number','Duplicate: '+ak); else accSeen[ak]=true; }
+      const ck = emp.empCode.trim();
+      if (ck) { if(codeSeen[ck]) e('Emp Code','Duplicate: '+ck); else codeSeen[ck]=true; }
+    });
+
+    renderValidation();
+    hideLoad();
+  }, 40);
+}
+
+function renderValidation() {
+  const all = [...s1Rows,...s2Rows].filter(r=>!r._skip);
+  const errCount = valErrors.length;
+  const rowsWithErr = all.filter(r=>r._errors&&r._errors.length).length;
+  const ok = all.length - rowsWithErr;
+
+  const badge = document.getElementById('badge-val');
+
+  let html = `<div class="vsum">
+    <div class="vbox ok">✅ ${ok} Valid Rows</div>
+    ${errCount?`<div class="vbox err">❌ ${errCount} Errors in ${rowsWithErr} rows</div>`:''}
+    ${!errCount?`<div class="vbox ok" style="font-weight:700">🎉 All active records passed!</div>`:''}
+  </div>`;
+
+  if (errCount) {
+    html += `<div style="overflow-x:auto"><table>
+      <thead><tr><th>Sheet</th><th>Row</th><th>Emp Code</th><th>Field</th><th>Error</th></tr></thead><tbody>`;
+    valErrors.forEach(e=>{
+      html+=`<tr><td>Sheet ${e.sheet}</td><td>${e.row}</td><td>${esc(e.code)}</td>
+        <td><span class="tag tag-r">${esc(e.field)}</span></td><td>${esc(e.msg)}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    html += `<div class="alert alert-warn mt2">⚠️ Fix errors in your Excel file, re-upload, and validate again before generating files.</div>`;
+  } else {
+    html += `<div class="alert alert-ok">✅ Data is clean. You can now generate the bank upload files.</div>`;
+  }
+
+  document.getElementById('valBody').innerHTML = html;
+}
+
+// ═══════════════════════════════
+// GENERATE ALL 4 FILES
+// Serial: .01 S1-HDFC, .02 S1-Non, .03 S2-HDFC, .04 S2-Non
+// ═══════════════════════════════
+function generateAll() {
+  const compAcc = document.getElementById('compAcc').value.trim();
+  if (!compAcc) { showAlert('Please enter the company HDFC debit account number.','warn'); return; }
+  if (!s1Rows.length && !s2Rows.length) { showAlert('No data loaded. Upload the Bank Advice file first.','warn'); return; }
+
+  showLoad('Generating files...');
+  setTimeout(()=>{
+    const names = buildFileNames();
+    const { mmdd } = getTodayParts();
+    const month = document.getElementById('selMonth').value || '';
+
+    const s1valid = s1Rows.filter(r=>!r._skip);
+    const s2valid = s2Rows.filter(r=>!r._skip);
+
+    const s1hdfc  = s1valid.filter(r=>r._isHDFC);
+    const s1non   = s1valid.filter(r=>!r._isHDFC);
+    const s2hdfc  = s2valid.filter(r=>r._isHDFC);
+    const s2non   = s2valid.filter(r=>!r._isHDFC);
+
+    generatedFiles[0] = buildHDFCContent(s1hdfc, compAcc, month);
+    generatedFiles[1] = buildNonHDFCContent(s1non);
+    generatedFiles[2] = buildHDFCContent(s2hdfc, compAcc, month+' OT');
+    generatedFiles[3] = buildNonHDFCContent(s2non);
+
+    // Update UI for each of the 4 cards
+    [0,1,2,3].forEach(i=>{
+      const n = names[i];
+      document.getElementById(`fn${i+1}`).textContent = n;
+      const fp = document.getElementById(`fp${i+1}`);
+      fp.style.display = '';
+      fp.innerHTML = buildPreviewHTML(generatedFiles[i].split('\n'), 15);
+      document.getElementById(`dl${i+1}`).disabled = false;
+    });
+
+    document.getElementById('dlAll').disabled = false;
+    hideLoad();
+    showAlert('✅ All 4 files generated successfully!','ok');
+  }, 50);
+}
+
+// ═══════════════════════════════
+// HDFC FILE BUILDER
+// Header:  CompanyAcc,C,TotalAmt,Narration
+// Data:    AccountNo,C,EmpName,Amt,Narration
+// ═══════════════════════════════
+function buildHDFCContent(rows, compAcc, monthLabel) {
+  const total = rows.reduce((s,r)=>s+(parseFloat(r.salary)||0),0);
+  const narr = 'Salary ' + (monthLabel||'');
+  const lines = [
+    [compAcc, 'C', fmtAmt(total), narr.trim()].join(',')
+  ];
+  rows.forEach(r=>{
+    lines.push([r.accountNo, 'C', r.empName, fmtAmt(parseFloat(r.salary)||0), (r.narration||'Salary')].join(','));
+  });
+  return lines.join('\r\n');
+}
+
+// ═══════════════════════════════
+// NON-HDFC FILE BUILDER
+// No header row
+// EmpCode,EmpName,AccountNo,IFSC,02,Amount,PaymentDateYYYYMMDD
+// Date in filename = current date (mmdd)
+// Date in data rows = from Payment Date column → yyyymmdd
+// ═══════════════════════════════
+function buildNonHDFCContent(rows) {
+  const lines = rows.map(r=>{
+    const yyyymmdd = parseDateToYYYYMMDD(r.paymentDate) || '';
+    return [r.empCode, r.empName, r.accountNo, r.ifsc.toUpperCase(), '02', fmtAmt(parseFloat(r.salary)||0), yyyymmdd].join(',');
+  });
+  return lines.join('\r\n');
+}
+
+function fmtAmt(n) { return parseFloat(n).toFixed(2); }
+
+// ═══════════════════════════════
+// PREVIEW HTML
+// ═══════════════════════════════
+function buildPreviewHTML(lines, max) {
+  return lines.slice(0,max).map((line,i)=>{
+    // First line of HDFC files is the header (has 4 fields, 2nd = C)
+    const parts = line.split(',');
+    const isHdr = (i===0 && parts[1]==='C' && parts.length===4);
+    return `<span class="lnum">${String(i+1).padStart(3,' ')}</span>`+
+           (isHdr?`<span class="hl">${esc(line)}</span>`:`${esc(line)}`);
+  }).join('\n') + (lines.length>max?`\n<span style="color:#888">... ${lines.length-max} more lines</span>`:'');
+}
+
+// ═══════════════════════════════
+// DOWNLOAD
+// ═══════════════════════════════
+function dlFile(idx) {
+  const names = buildFileNames();
+  const content = generatedFiles[idx];
+  if (!content && content !== '') { showAlert('Generate files first.','warn'); return; }
+  doDownload(content, names[idx]);
+}
+
+function downloadAll() {
+  const names = buildFileNames();
+  let delay = 0;
+  generatedFiles.forEach((c,i)=>{
+    if (c!==null) setTimeout(()=>doDownload(c, names[i]), delay+=400);
+  });
+}
+
+function doDownload(content, filename) {
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+// ═══════════════════════════════
+// CLEAR ALL
+// ═══════════════════════════════
+function clearAll() {
+  if ((s1Rows.length||s2Rows.length) && !confirm('Clear all data?')) return;
+  s1Rows=[]; s2Rows=[]; valErrors=[]; generatedFiles=[null,null,null,null];
+  ['s1Section','s2Section'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('valBody').innerHTML='<div class="empty"><div class="ei">🔍</div><p>Upload data and run validation.</p></div>';
+  ['fp1','fp2','fp3','fp4'].forEach(id=>{ const el=document.getElementById(id); el.style.display='none'; el.innerHTML=''; });
+  ['dl1','dl2','dl3','dl4'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('dlAll').disabled=true;
+  document.getElementById('dzChip').style.display='none';
+  updateDashboard();
+  updateFileNamePreviews();
+}
+
+// ═══════════════════════════════
+// ALERT TOAST
+// ═══════════════════════════════
+function showAlert(msg, type='info') {
+  const icons={info:'ℹ️',ok:'✅',err:'❌',warn:'⚠️'};
+  const cls={info:'alert-info',ok:'alert-ok',err:'alert-err',warn:'alert-warn'};
+  const d=document.createElement('div');
+  d.className=`alert ${cls[type]||'alert-info'}`;
+  d.style.cssText='position:fixed;top:68px;right:18px;z-index:9998;max-width:360px;box-shadow:var(--shl);animation:fadeIn .2s';
+  d.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  document.body.appendChild(d);
+  setTimeout(()=>{d.style.transition='opacity .4s';d.style.opacity='0';setTimeout(()=>d.remove(),400);},4500);
+}
+
+// ═══════════════════════════════
+// MISC
+// ═══════════════════════════════
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function formatINR(n){const v=parseFloat(n);if(isNaN(v))return'₹0.00';return'₹'+v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+// ═══════════════════════════════
+// INIT — auto-select current month & FY, pre-compute file names
+// ═══════════════════════════════
+(function init(){
+  const months=['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+  const d=new Date();
+  document.getElementById('selMonth').value=months[d.getMonth()];
+  const yr=d.getFullYear(), mo=d.getMonth();
+  document.getElementById('selFY').value=mo>=3?`${yr}-${String(yr+1).slice(2)}`:`${yr-1}-${String(yr).slice(2)}`;
+  updateDashboard();
+  updateFileNamePreviews();
+})();
+</script>
+</body>
+</html>
