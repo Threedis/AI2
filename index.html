@@ -36,7 +36,7 @@ nav{background:var(--white);border-bottom:1.5px solid var(--border);padding:0 5%
 
 /* ── HERO ── */
 .hero{background:var(--white);border-bottom:1.5px solid var(--border);padding:44px 5% 48px;}
-.hero-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1.05fr;gap:52px;align-items:start;}
+.hero-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.3fr 1fr;gap:52px;align-items:start;}
 .hero-pill{display:inline-flex;align-items:center;gap:7px;background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:700;letter-spacing:.6px;padding:5px 12px;border-radius:20px;border:1px solid rgba(0,76,143,.15);margin-bottom:16px;}
 .hero-dot{width:6px;height:6px;background:var(--blue);border-radius:50%;animation:blink 2s infinite;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
@@ -184,20 +184,95 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
   <span class="nav-tag">Bank File Generator</span>
 </nav>
 
+<!-- AI TITLE BANNER -->
+<div style="background:var(--white);border-bottom:1.5px solid var(--border);padding:14px 5%;display:flex;align-items:center;justify-content:center;gap:0;">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:22px;color:var(--blue);letter-spacing:-0.5px;">AI–2</span>
+    <span style="width:1.5px;height:28px;background:var(--border);display:inline-block;"></span>
+    <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:20px;color:var(--ink);letter-spacing:-0.3px;">Bank File Generator</span>
+    <span style="font-size:12px;font-weight:600;background:var(--orange-light);color:var(--orange);padding:4px 12px;border-radius:20px;border:1px solid rgba(234,88,12,.2);letter-spacing:.2px;">Salary</span>
+  </div>
+</div>
+
 <!-- HERO -->
 <section class="hero">
   <div class="hero-inner">
 
-    <!-- LEFT: Info -->
+    <!-- LEFT: Info + SOP -->
     <div>
       <div class="hero-pill"><span class="hero-dot"></span>Three D Integrated Solutions Ltd.</div>
       <h1>Bank File<br/><span class="hl">Generator</span></h1>
-      <p class="hero-desc">Upload your monthly Bank Advise Excel, pick the payment date and serial number — get four bank-ready <strong>275TSAL</strong> and <strong>275TNES</strong> files instantly, with full discrepancy highlights.</p>
-      <div class="kpi-row">
-        <div class="kpi"><div class="kpi-val">4<span class="u"> files</span></div><div class="kpi-lbl">Per Run</div></div>
-        <div class="kpi"><div class="kpi-val">0<span class="u"> errors</span></div><div class="kpi-lbl">Format Accuracy</div></div>
-        <div class="kpi"><div class="kpi-val">SAL<span class="u">+OT</span></div><div class="kpi-lbl">Both Sheets</div></div>
-        <div class="kpi"><div class="kpi-val">&lt;5<span class="u">s</span></div><div class="kpi-lbl">Turnaround</div></div>
+
+      <p class="hero-desc">This utility automates the generation of HDFC bulk salary payment files — <strong>275TSAL</strong> (HDFC-to-HDFC internal transfers) and <strong>275TNES</strong> (NEFT transfers to other banks) — directly from your monthly Bank Advise Excel sheet. No manual formatting, no copy-paste errors.</p>
+
+      <p class="hero-desc" style="margin-top:-8px;">The tool detects whether both a Salary sheet and an OT sheet are present in the uploaded file. If both are found, <strong>4 files</strong> are generated in one run; if only the Salary sheet is present, <strong>2 files</strong> are generated. Column order in the Excel does not matter — headers are auto-detected by name.</p>
+
+      <!-- KPI strip -->
+      <div class="kpi-row" style="margin-bottom:24px;">
+        <div class="kpi">
+          <div class="kpi-val" id="heroFileCount">2–4<span class="u"> files</span></div>
+          <div class="kpi-lbl">Per Run</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val">0<span class="u"> errors</span></div>
+          <div class="kpi-lbl">Format Accuracy</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val" id="heroSheets">SAL<span class="u"> only</span></div>
+          <div class="kpi-lbl">Sheets Detected</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val">&lt;5<span class="u">s</span></div>
+          <div class="kpi-lbl">Turnaround</div>
+        </div>
+      </div>
+
+      <!-- SOP -->
+      <div style="margin-top:20px;">
+        <div style="font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:12px;">Standard Operating Procedure</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;">1</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--ink);">Upload the Bank Advise Excel</div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Drag and drop or click to browse. The file must contain a Salary sheet (and optionally an OT sheet). Supported: <code style="font-size:11px;background:var(--surface);padding:1px 5px;border-radius:3px;">.xlsx / .xls</code></div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;">2</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--ink);">Verify auto-detected column mapping</div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">After upload, the tool shows which Excel column was mapped to each field (EMP Code, Account, IFSC, Net Pay, etc.). Confirm before proceeding.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;">3</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--ink);">Enter payment date and last serial number</div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Select the payment date (DDMM is auto-derived for filenames). Enter the last serial number used — output files will consume the next 2 or 4 serial slots.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;">4</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--ink);">Generate and download files</div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Click <em>Generate Files</em>. Review the discrepancy report (zero-pay exclusions, missing IFSC, blank accounts), then download individually or all at once.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;">✓</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--ink);">Upload to HDFC Corporate Net Banking</div>
+              <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Upload each generated file via <strong>Bulk Upload → 275TSAL / 275TNES</strong> in the HDFC Corporate portal. Verify the debit confirmation after submission.</div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
 
@@ -236,7 +311,7 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
         <div class="ctrl">
           <label class="ctrl-lbl" for="lastSerial">Last Serial No. <span class="req">*</span></label>
           <input class="ctrl-input" type="number" id="lastSerial" min="1" max="99" placeholder="e.g. 1" value="1"/>
-          <span class="ctrl-hint">Files will use serials +1 → +4</span>
+          <span class="ctrl-hint" id="serialHint">Files will use serials +1 → +2 (or +4 if OT sheet found)</span>
         </div>
       </div>
 
@@ -267,7 +342,7 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
       </div>
       <button class="download-all-btn" id="downloadAllBtn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download All 4 Files
+        <span id="downloadAllLabel">Download All Files</span>
       </button>
     </div>
 
@@ -289,7 +364,12 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
 </section>
 
 <footer>
-  <div class="footer-brand" style="display:flex;align-items:center;justify-content:center;gap:10px;"><img src="data:image/jpeg;base64,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" style="height:32px;width:auto;filter:brightness(0) invert(1);border-radius:4px;" alt="logo"/><span>Three D Integrated <span>Solutions Ltd.</span></span></div>
+  <div class="footer-brand" style="display:flex;align-items:center;justify-content:center;gap:10px;"><img src="data:image/jpeg;base64,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" alt="Three D Integrated Solutions Logo" style="height:38px;width:auto;display:block;border-radius:4px;" />
+      <div>
+        <span style="font-size:13px;font-weight:600;color:var(--white);line-height:1.2;display:block;">Three D Integrated</span>
+        <span style="font-size:13px;font-weight:600;color:var(--white);line-height:1.2;display:block;">Solutions Ltd.</span>
+      </div>
+    </div>
   <p>HDFC Bulk Salary Upload Automation · 275TSAL &amp; 275TNES Generator · Three D Integrated Solutions Ltd. · © 2026</p>
 </footer>
 
@@ -334,9 +414,33 @@ function loadFile(file) {
   reader.onload = e => {
     try {
       workbook = XLSX.read(e.target.result, { type: 'array' });
-      dzSheets.textContent = 'Sheets: ' + workbook.SheetNames.join(', ');
+
+      // Detect columns from the first salary sheet and show mapping to user
+      const salSheet = workbook.SheetNames.find(n => n.toUpperCase().includes('SALARY') || n.toUpperCase().includes('BANK ADIV') || n.toUpperCase().includes('BANK ADV'));
+      let colInfo = '';
+      if (salSheet) {
+        const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[salSheet], { header: 1, defval: null });
+        const { headerRowIndex, map } = detectColumnMap(matrix);
+        if (headerRowIndex >= 0) {
+          const fieldLabels = { empCode:'EMP Code', empName:'EMP Name', bankName:'Bank', account:'Account', netPay:'Net Pay', ifsc:'IFSC', nameInBank:'Name in Bank' };
+          const detected = Object.entries(fieldLabels).map(([f, lbl]) => map[f] !== undefined ? `${lbl}→col ${map[f]}` : `${lbl}→?`).join(' · ');
+          colInfo = `Columns auto-detected (row ${headerRowIndex+1}): ${detected}`;
+        } else {
+          colInfo = 'No header row found — using fixed column positions (skill spec defaults)';
+        }
+      }
+      dzSheets.textContent = 'Sheets: ' + workbook.SheetNames.join(', ') + (colInfo ? ' | ' + colInfo : '');
       dzDefault.style.display = 'none';
       dzAccepted.classList.add('show');
+
+      // Detect OT sheet and update serial hint
+      const hasOT = !!workbook.SheetNames.find(n => n.toUpperCase().includes('OT'));
+      document.getElementById('heroFileCount').innerHTML = (hasOT ? '4' : '2') + '<span class="u"> files</span>';
+      document.getElementById('heroSheets').innerHTML = hasOT ? 'SAL<span class="u">+OT</span>' : 'SAL<span class="u"> only</span>';
+      document.getElementById('serialHint').textContent = hasOT
+        ? 'Files will use serials +1 → +4 (Salary + OT)'
+        : 'Files will use serials +1 → +2 (Salary only)';
+
       checkReady();
     } catch(err) {
       alert('Could not read Excel file: ' + err.message);
@@ -384,13 +488,16 @@ function updatePreviews() {
     datePreview.textContent = 'DDMM format will be auto-derived';
   }
   const ls = parseInt(lastSerialInput.value) || 1;
+  const hasOT = workbook && !!workbook.SheetNames.find(n => n.toUpperCase().includes('OT'));
   if (ddmm && ls >= 1) {
     serialPreview.style.display = 'block';
     const names = [
       { n: `275TSAL${ddmm}${getSerial(ls+1)}`, c: 'chip-blue', lbl: 'Salary HDFC' },
       { n: `275TNES${ddmm}${getSerial(ls+2)}`, c: 'chip-teal', lbl: 'Salary NEFT' },
-      { n: `275TSAL${ddmm}${getSerial(ls+3)}`, c: 'chip-blue', lbl: 'OT HDFC' },
-      { n: `275TNES${ddmm}${getSerial(ls+4)}`, c: 'chip-teal', lbl: 'OT NEFT' },
+      ...(hasOT ? [
+        { n: `275TSAL${ddmm}${getSerial(ls+3)}`, c: 'chip-blue', lbl: 'OT HDFC' },
+        { n: `275TNES${ddmm}${getSerial(ls+4)}`, c: 'chip-teal', lbl: 'OT NEFT' },
+      ] : []),
     ];
     filenameRow.innerHTML = names.map(x =>
       `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px;
@@ -409,26 +516,87 @@ function checkReady() {
 }
 
 // ═══════════════════════════════════════════
-//  CORE LOGIC — parse Excel per skill spec
+//  CORE LOGIC — header-name based column detection
 // ═══════════════════════════════════════════
+
+// Keywords used to identify each logical column (case-insensitive partial match).
+// Order matters: first match wins. More specific keywords come first.
+const COL_KEYWORDS = {
+  serialNo:   ['sl no', 'slno', 'sr no', 'srno', 's.no', 'serial'],
+  empCode:    ['emp_code', 'emp code', 'empcode', 'employee code', 'emp. code'],
+  empName:    ['emp_name', 'emp name', 'empname', 'employee name', 'emp. name'],
+  bankName:   ['bank name', 'bank_name', 'bankname', 'bank'],
+  account:    ['account no', 'account number', 'acc no', 'acc. no', 'acct no', 'account'],
+  netPay:     ['net pay', 'net_pay', 'netpay', 'net salary', 'amount'],
+  ifsc:       ['ifsc code', 'ifsc_code', 'ifsccode', 'ifsc'],
+  nameInBank: ['name in bank', 'name_in_bank', 'bank name as per', 'name as per bank', 'beneficiary name'],
+};
+
 function sheetToMatrix(wb, sheetName) {
-  // find sheet by partial name match (case-insensitive)
   const name = wb.SheetNames.find(n => n.toUpperCase().includes(sheetName.toUpperCase()));
   if (!name) return null;
   const ws = wb.Sheets[name];
   return XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 }
 
-function parseRows(matrix, bankType) {
-  // bankType: 'HDFC' or 'OTHER'
+// Scan the matrix for a header row and return a column-index map keyed by logical field names.
+// A header row is identified as the first row where ≥3 cells are non-null non-numeric strings.
+function detectColumnMap(matrix) {
+  for (let r = 0; r < Math.min(matrix.length, 15); r++) {
+    const row = matrix[r];
+    const textCells = row.filter(c => c !== null && c !== undefined && isNaN(Number(c)) && String(c).trim() !== '');
+    if (textCells.length < 3) continue;
+
+    // Try to map each logical field to a column index
+    const map = {};
+    for (const [field, keywords] of Object.entries(COL_KEYWORDS)) {
+      for (let c = 0; c < row.length; c++) {
+        if (row[c] === null || row[c] === undefined) continue;
+        const cell = String(row[c]).toLowerCase().trim();
+        if (keywords.some(kw => cell.includes(kw))) {
+          if (!(field in map)) map[field] = c; // first match wins
+        }
+      }
+    }
+
+    // Accept this row as header if we found at least serialNo + bankName + netPay
+    if ('serialNo' in map && 'bankName' in map && 'netPay' in map) {
+      return { headerRowIndex: r, map };
+    }
+  }
+  // Fallback to skill-spec fixed positions if no header detected
+  console.warn('No header row detected — falling back to fixed column positions per skill spec');
+  return {
+    headerRowIndex: -1,
+    map: { serialNo:0, empCode:1, empName:2, bankName:3, account:4, netPay:5, ifsc:7, nameInBank:8 }
+  };
+}
+
+function getCell(row, map, field) {
+  const idx = map[field];
+  return (idx !== undefined && idx < row.length) ? row[idx] : null;
+}
+
+function safeStr(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  return (s === 'null' || s === 'NULL' || s.toUpperCase() === 'NAN') ? '' : s;
+}
+
+function safeAmount(v) {
+  try { const n = Math.round(parseFloat(v)); return isNaN(n) ? 0 : n; }
+  catch(e) { return 0; }
+}
+
+function parseRows(matrix, colMap, headerRowIndex, bankType) {
   const rows = [];
-  for (const row of matrix) {
-    const col0 = row[0];
-    // data row: col0 is a number (not null, not "SLNO")
-    if (col0 === null || col0 === undefined) continue;
-    const s = String(col0).trim();
-    if (!/^\d+$/.test(s)) continue;
-    const bankName = String(row[3] || '').toUpperCase();
+  for (let r = headerRowIndex + 1; r < matrix.length; r++) {
+    const row = matrix[r];
+    const serial = getCell(row, colMap, 'serialNo');
+    if (serial === null || serial === undefined) continue;
+    const s = String(serial).trim();
+    if (!/^\d+$/.test(s)) continue; // skip blank/header rows
+    const bankName = safeStr(getCell(row, colMap, 'bankName')).toUpperCase();
     if (!bankName.includes(bankType)) continue;
     rows.push(row);
   }
@@ -436,42 +604,42 @@ function parseRows(matrix, bankType) {
 }
 
 function getHDFC(matrix) {
-  const rows = parseRows(matrix, 'HDFC');
+  const { headerRowIndex, map } = detectColumnMap(matrix);
+  const rows = parseRows(matrix, map, headerRowIndex, 'HDFC');
   const out = [], zeroPay = [], missingName = [];
+
   for (const row of rows) {
-    let amt;
-    try { amt = Math.round(parseFloat(row[5])); } catch(e) { amt = 0; }
-    const empName = String(row[2] || '').trim().toUpperCase();
-    const nameInBank = (row[8] && String(row[8]).trim() && String(row[8]).trim().toUpperCase() !== 'NAN')
-      ? String(row[8]).trim().toUpperCase() : empName;
-    const account = String(row[4] || '').trim();
-    const empCode = String(row[1] || '').trim().toUpperCase();
+    const amt     = safeAmount(getCell(row, map, 'netPay'));
+    const empCode = safeStr(getCell(row, map, 'empCode')).toUpperCase();
+    const empName = safeStr(getCell(row, map, 'empName')).toUpperCase();
+    const nibRaw  = safeStr(getCell(row, map, 'nameInBank')).toUpperCase();
+    const nameInBank = nibRaw || empName;
+    const account = safeStr(getCell(row, map, 'account'));
 
     if (amt === 0) { zeroPay.push(empCode + ' (' + empName + ')'); continue; }
-    if (!account || account === 'NULL') { missingName.push(empCode); }
+    if (!account) missingName.push(empCode);
     out.push([account, 'C', amt, nameInBank]);
   }
   return { data: out, zeroPay, missingName };
 }
 
 function getNEFT(matrix, date) {
-  const rows = parseRows(matrix, 'OTHER');
+  const { headerRowIndex, map } = detectColumnMap(matrix);
+  const rows = parseRows(matrix, map, headerRowIndex, 'OTHER');
   const out = [], zeroPay = [], missingIFSC = [], missingAccount = [];
+
   for (const row of rows) {
-    let amt;
-    try { amt = Math.round(parseFloat(row[5])); } catch(e) { amt = 0; }
-    const empCode  = String(row[1] || '').trim().toUpperCase();
-    const empName  = String(row[2] || '').trim().toUpperCase();
-    const nameInBank = (row[8] && String(row[8]).trim() && String(row[8]).trim().toUpperCase() !== 'NAN')
-      ? String(row[8]).trim().toUpperCase() : empName;
-    const account  = String(row[4] || '').trim();
-    const ifscRaw  = row[7];
-    const ifsc     = (ifscRaw && String(ifscRaw).trim() && String(ifscRaw).trim().toUpperCase() !== 'NAN')
-      ? String(ifscRaw).trim().toUpperCase() : '';
+    const amt       = safeAmount(getCell(row, map, 'netPay'));
+    const empCode   = safeStr(getCell(row, map, 'empCode')).toUpperCase();
+    const empName   = safeStr(getCell(row, map, 'empName')).toUpperCase();
+    const nibRaw    = safeStr(getCell(row, map, 'nameInBank')).toUpperCase();
+    const nameInBank= nibRaw || empName;
+    const account   = safeStr(getCell(row, map, 'account'));
+    const ifsc      = safeStr(getCell(row, map, 'ifsc')).toUpperCase();
 
     if (amt === 0) { zeroPay.push(empCode + ' (' + empName + ')'); continue; }
-    if (!ifsc) missingIFSC.push(empCode + ' (' + empName + ')');
-    if (!account || account === 'NULL' || account === 'NAN') missingAccount.push(empCode);
+    if (!ifsc)    missingIFSC.push(empCode + ' (' + empName + ')');
+    if (!account) missingAccount.push(empCode);
     out.push([empCode, nameInBank, account, ifsc, '02', amt, date]);
   }
   return { data: out, zeroPay, missingIFSC, missingAccount };
@@ -517,23 +685,22 @@ async function generate() {
 
     const salMatrix = sheetToMatrix(workbook, salSheetName.substring(0,8));
     const otMatrix  = otSheetName ? sheetToMatrix(workbook, otSheetName.substring(0,8)) : null;
+    const hasOT = !!otMatrix;
 
     // Parse
     const salHDFC = getHDFC(salMatrix);
     const salNEFT = getNEFT(salMatrix, yyyymmdd);
-    const otHDFC  = otMatrix ? getHDFC(otMatrix) : { data:[], zeroPay:[], missingName:[] };
-    const otNEFT  = otMatrix ? getNEFT(otMatrix, yyyymmdd) : { data:[], zeroPay:[], missingIFSC:[], missingAccount:[] };
+    const otHDFC  = hasOT ? getHDFC(otMatrix) : null;
+    const otNEFT  = hasOT ? getNEFT(otMatrix, yyyymmdd) : null;
 
-    // File names
+    // File names — 2 or 4 depending on OT sheet
     const f1name = '275TSAL' + ddmm + getSerial(ls+1);
     const f2name = '275TNES' + ddmm + getSerial(ls+2);
-    const f3name = '275TSAL' + ddmm + getSerial(ls+3);
-    const f4name = '275TNES' + ddmm + getSerial(ls+4);
+    const f3name = hasOT ? '275TSAL' + ddmm + getSerial(ls+3) : null;
+    const f4name = hasOT ? '275TNES' + ddmm + getSerial(ls+4) : null;
 
     const f1content = buildTSALContent(salHDFC.data);
     const f2content = buildTNESContent(salNEFT.data);
-    const f3content = buildTSALContent(otHDFC.data);
-    const f4content = buildTNESContent(otNEFT.data);
 
     generatedFiles = [
       { name: f1name, content: f1content, type: 'TSAL', label: 'Salary · HDFC→HDFC',
@@ -542,15 +709,25 @@ async function generate() {
       { name: f2name, content: f2content, type: 'TNES', label: 'Salary · HDFC→Others (NEFT)',
         rows: salNEFT.data.length, total: salNEFT.data.reduce((s,r)=>s+r[5],0),
         data: salNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: salNEFT.zeroPay, missingIFSC: salNEFT.missingIFSC, missingAccount: salNEFT.missingAccount } },
-      { name: f3name, content: f3content, type: 'TSAL', label: 'OT · HDFC→HDFC',
-        rows: otHDFC.data.length, total: otHDFC.data.reduce((s,r)=>s+r[2],0),
-        data: otHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: otHDFC.zeroPay, missingName: otHDFC.missingName } },
-      { name: f4name, content: f4content, type: 'TNES', label: 'OT · HDFC→Others (NEFT)',
-        rows: otNEFT.data.length, total: otNEFT.data.reduce((s,r)=>s+r[5],0),
-        data: otNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: otNEFT.zeroPay, missingIFSC: otNEFT.missingIFSC, missingAccount: otNEFT.missingAccount } },
     ];
 
-    renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salSheetName, otSheetName);
+    if (hasOT) {
+      const f3content = buildTSALContent(otHDFC.data);
+      const f4content = buildTNESContent(otNEFT.data);
+      generatedFiles.push(
+        { name: f3name, content: f3content, type: 'TSAL', label: 'OT · HDFC→HDFC',
+          rows: otHDFC.data.length, total: otHDFC.data.reduce((s,r)=>s+r[2],0),
+          data: otHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: otHDFC.zeroPay, missingName: otHDFC.missingName } },
+        { name: f4name, content: f4content, type: 'TNES', label: 'OT · HDFC→Others (NEFT)',
+          rows: otNEFT.data.length, total: otNEFT.data.reduce((s,r)=>s+r[5],0),
+          data: otNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: otNEFT.zeroPay, missingIFSC: otNEFT.missingIFSC, missingAccount: otNEFT.missingAccount } }
+      );
+    }
+
+    // Update download all label
+    document.getElementById('downloadAllLabel').textContent = `Download All ${generatedFiles.length} Files`;
+
+    renderResults(salHDFC, salNEFT, hasOT ? otHDFC : null, hasOT ? otNEFT : null, ddmm, yyyymmdd, salSheetName, otSheetName);
 
   } catch(err) {
     alert('Error: ' + err.message);
@@ -569,22 +746,31 @@ function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd) {
   resultsEl.style.display = 'block';
   resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  const hasOT = !!otHDFC;
+
   // Meta
   const totalRows = generatedFiles.reduce((s,f)=>s+f.rows,0);
   const totalAmt  = generatedFiles.reduce((s,f)=>s+f.total,0);
   document.getElementById('resultsMeta').textContent =
-    `Payment Date: ${ddmm.slice(0,2)}/${ddmm.slice(2)} · ${totalRows} employees · ${formatINR(totalAmt)} total`;
+    `Payment Date: ${ddmm.slice(0,2)}/${ddmm.slice(2)} · ${totalRows} employees · ${formatINR(totalAmt)} total · ${generatedFiles.length} files`;
 
-  // Reconciliation
+  // Reconciliation strip — 2 or 4 cells
   const reconStrip = document.getElementById('reconStrip');
-  const salTotal = generatedFiles[0].total + generatedFiles[1].total;
-  const otTotal  = generatedFiles[2].total + generatedFiles[3].total;
-  reconStrip.innerHTML = `
-    <div class="recon-cell"><div class="recon-label">Salary HDFC</div><div class="recon-value">${formatINR(generatedFiles[0].total)}</div></div>
-    <div class="recon-cell"><div class="recon-label">Salary NEFT</div><div class="recon-value">${formatINR(generatedFiles[1].total)}</div></div>
-    <div class="recon-cell"><div class="recon-label">OT HDFC</div><div class="recon-value">${formatINR(generatedFiles[2].total)}</div></div>
-    <div class="recon-cell"><div class="recon-label">OT NEFT</div><div class="recon-value">${formatINR(generatedFiles[3].total)}</div></div>
-  `;
+  if (hasOT) {
+    reconStrip.style.gridTemplateColumns = 'repeat(4,1fr)';
+    reconStrip.innerHTML = `
+      <div class="recon-cell"><div class="recon-label">Salary HDFC</div><div class="recon-value">${formatINR(generatedFiles[0].total)}</div></div>
+      <div class="recon-cell"><div class="recon-label">Salary NEFT</div><div class="recon-value">${formatINR(generatedFiles[1].total)}</div></div>
+      <div class="recon-cell"><div class="recon-label">OT HDFC</div><div class="recon-value">${formatINR(generatedFiles[2].total)}</div></div>
+      <div class="recon-cell"><div class="recon-label">OT NEFT</div><div class="recon-value">${formatINR(generatedFiles[3].total)}</div></div>
+    `;
+  } else {
+    reconStrip.style.gridTemplateColumns = 'repeat(2,1fr)';
+    reconStrip.innerHTML = `
+      <div class="recon-cell"><div class="recon-label">Salary HDFC</div><div class="recon-value">${formatINR(generatedFiles[0].total)}</div></div>
+      <div class="recon-cell"><div class="recon-label">Salary NEFT</div><div class="recon-value">${formatINR(generatedFiles[1].total)}</div></div>
+    `;
+  }
 
   // File cards
   const filesGrid = document.getElementById('filesGrid');
@@ -667,12 +853,13 @@ function renderPreviewTable(f) {
 
 function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT) {
   const items = [];
+  const hasOT = !!otHDFC;
 
   const allZeroPay = [
     ...salHDFC.zeroPay.map(e=>'SAL-HDFC: '+e),
     ...salNEFT.zeroPay.map(e=>'SAL-NEFT: '+e),
-    ...otHDFC.zeroPay.map(e=>'OT-HDFC: '+e),
-    ...otNEFT.zeroPay.map(e=>'OT-NEFT: '+e),
+    ...(hasOT ? otHDFC.zeroPay.map(e=>'OT-HDFC: '+e) : []),
+    ...(hasOT ? otNEFT.zeroPay.map(e=>'OT-NEFT: '+e) : []),
   ];
   if (allZeroPay.length) {
     items.push({ type:'warn', icon:'⚠️',
@@ -682,7 +869,10 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT) {
     });
   }
 
-  const allMissingIFSC = [...(salNEFT.missingIFSC||[]).map(e=>'SAL: '+e), ...(otNEFT.missingIFSC||[]).map(e=>'OT: '+e)];
+  const allMissingIFSC = [
+    ...(salNEFT.missingIFSC||[]).map(e=>'SAL: '+e),
+    ...(hasOT ? (otNEFT.missingIFSC||[]).map(e=>'OT: '+e) : []),
+  ];
   if (allMissingIFSC.length) {
     items.push({ type:'err', icon:'❌',
       title: `${allMissingIFSC.length} NEFT employee(s) missing IFSC code`,
@@ -691,7 +881,10 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT) {
     });
   }
 
-  const allMissingAcc = [...(salNEFT.missingAccount||[]).map(e=>'SAL: '+e), ...(otNEFT.missingAccount||[]).map(e=>'OT: '+e)];
+  const allMissingAcc = [
+    ...(salNEFT.missingAccount||[]).map(e=>'SAL: '+e),
+    ...(hasOT ? (otNEFT.missingAccount||[]).map(e=>'OT: '+e) : []),
+  ];
   if (allMissingAcc.length) {
     items.push({ type:'err', icon:'❌',
       title: `${allMissingAcc.length} employee(s) with blank account number`,
@@ -700,22 +893,30 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT) {
     });
   }
 
-  // Amount reconciliation check
+  // Amount reconciliation
   const salHDFCTotal = generatedFiles[0]?.total || 0;
   const salNEFTTotal = generatedFiles[1]?.total || 0;
-  const otHDFCTotal  = generatedFiles[2]?.total || 0;
-  const otNEFTTotal  = generatedFiles[3]?.total || 0;
+  const otHDFCTotal  = hasOT ? (generatedFiles[2]?.total || 0) : 0;
+  const otNEFTTotal  = hasOT ? (generatedFiles[3]?.total || 0) : 0;
 
   items.push({ type:'ok', icon:'✅',
     title: 'File totals reconciled successfully',
-    detail: `Salary HDFC: ${formatINR(salHDFCTotal)} · Salary NEFT: ${formatINR(salNEFTTotal)} · OT HDFC: ${formatINR(otHDFCTotal)} · OT NEFT: ${formatINR(otNEFTTotal)} · Grand Total: ${formatINR(salHDFCTotal+salNEFTTotal+otHDFCTotal+otNEFTTotal)}`,
+    detail: `Salary HDFC: ${formatINR(salHDFCTotal)} · Salary NEFT: ${formatINR(salNEFTTotal)}`
+      + (hasOT ? ` · OT HDFC: ${formatINR(otHDFCTotal)} · OT NEFT: ${formatINR(otNEFTTotal)}` : '')
+      + ` · Grand Total: ${formatINR(salHDFCTotal+salNEFTTotal+otHDFCTotal+otNEFTTotal)}`,
     tagLabel: 'Reconciled ✓'
   });
 
+  const salEmp = (generatedFiles[0]?.rows||0) + (generatedFiles[1]?.rows||0);
+  const otEmp  = hasOT ? ((generatedFiles[2]?.rows||0) + (generatedFiles[3]?.rows||0)) : 0;
   items.push({ type:'info', icon:'ℹ️',
-    title: `${generatedFiles[0].rows + generatedFiles[1].rows} salary employees · ${generatedFiles[2].rows + generatedFiles[3].rows} OT employees`,
-    detail: `HDFC employees: ${generatedFiles[0].rows} (sal) + ${generatedFiles[2].rows} (OT) · NEFT employees: ${generatedFiles[1].rows} (sal) + ${generatedFiles[3].rows} (OT)`,
-    tagLabel: 'Summary'
+    title: hasOT
+      ? `${salEmp} salary employees · ${otEmp} OT employees`
+      : `${salEmp} salary employees · No OT sheet found`,
+    detail: hasOT
+      ? `HDFC employees: ${generatedFiles[0].rows} (sal) + ${generatedFiles[2].rows} (OT) · NEFT employees: ${generatedFiles[1].rows} (sal) + ${generatedFiles[3].rows} (OT)`
+      : `HDFC employees: ${generatedFiles[0].rows} (sal) · NEFT employees: ${generatedFiles[1].rows} (sal) · 2 files generated`,
+    tagLabel: hasOT ? 'Summary · 4 files' : 'Summary · 2 files'
   });
 
   return items;
