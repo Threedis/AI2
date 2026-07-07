@@ -113,6 +113,20 @@ input.ctrl-input:focus,select.ctrl-input:focus{border-color:var(--blue);box-shad
 .fstat-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.2rem;color:var(--ink);}
 .fstat-val .u{font-size:.75rem;color:var(--blue);font-weight:600;}
 .fstat-lbl{font-size:11px;color:var(--ink-4);margin-top:2px;}
+.fstat-flags{cursor:pointer;transition:background var(--tr);}
+.fstat-flags:hover{background:var(--amber-light);}
+.fstat-flags .fstat-val{color:var(--amber);}
+
+/* Flags hover popup */
+.flags-popup{position:fixed;z-index:1000;background:var(--white);border:1.5px solid var(--border);
+  border-radius:var(--r);box-shadow:var(--shadow-lg);padding:12px 14px;font-size:12px;
+  color:var(--ink-2);max-width:340px;pointer-events:none;display:none;}
+.flags-popup.show{display:block;}
+.flag-pop-section{margin-bottom:9px;}
+.flag-pop-section:last-child{margin-bottom:0;}
+.flag-pop-label{font-weight:700;color:var(--ink);font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.flag-pop-items{color:var(--ink-3);line-height:1.55;}
+.flag-pop-empty{color:var(--ink-4);}
 
 /* Preview table */
 .file-preview{padding:0 0 0 0;}
@@ -362,6 +376,8 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
     </div>
   </div>
 </section>
+
+<div class="flags-popup" id="flagsPopup"></div>
 
 <footer>
   <div class="footer-brand" style="display:flex;align-items:center;justify-content:center;gap:10px;"><img src="data:image/jpeg;base64,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" alt="Three D Integrated Solutions Logo" style="height:38px;width:auto;display:block;border-radius:4px;" />
@@ -699,6 +715,39 @@ function checkMismatch(empCode, empName, bankName, ifsc) {
   return null;
 }
 
+// ─────────────────────────────────────────────
+// Fuzzy name comparison: EMP Name vs Name in Bank
+// (Every other field/check in this tool is compared with an exact/rule-based match — this is the
+// only field pair compared with fuzzy logic, since spacing/middle-name/abbreviation differences
+// between payroll name and bank-registered name are common and don't always mean a real problem.)
+// ─────────────────────────────────────────────
+function normalizeName(name) {
+  if (!name) return '';
+  let s = String(name).toUpperCase().trim();
+  s = s.replace(/\s+/g, ' ');
+  s = s.replace(/[^A-Z0-9 ]/g, '');
+  return s;
+}
+
+// Returns null if names match (or there's nothing meaningful to compare), otherwise
+// { status: 'MINOR'|'MISMATCH', empCode, empName, nameInBank }.
+// - MINOR: one normalized name's tokens are a subset of the other's (e.g. middle name/initial
+//   dropped, or extra spacing/punctuation) — likely fine, just flagged for awareness.
+// - MISMATCH: normalized names share no such subset relationship — genuinely different names.
+// Note: uses the RAW "Name in Bank" cell (before the empty->EMP_NAME fallback used for the
+// output file), since a blank Name in Bank isn't a deviation — it's just falling back to EMP_NAME.
+function checkNameDeviation(empCode, empName, nameInBankRaw) {
+  if (!nameInBankRaw) return null; // blank Name in Bank -> falls back to EMP Name, nothing to compare
+  const n1 = normalizeName(empName);
+  const n2 = normalizeName(nameInBankRaw);
+  if (!n1 || n1 === n2) return null;
+  const t1 = n1.split(' ').filter(Boolean);
+  const t2 = n2.split(' ').filter(Boolean);
+  const s1 = new Set(t1), s2 = new Set(t2);
+  const isMinor = t1.every(t => s2.has(t)) || t2.every(t => s1.has(t));
+  return { status: isMinor ? 'MINOR' : 'MISMATCH', empCode, empName, nameInBank: nameInBankRaw };
+}
+
 // Counts actual employee data rows within HOLD/CHEQUE blocks (for reporting to the user).
 function countExcludedBySection(matrix) {
   const { headerRowIndex, map } = detectColumnMap(matrix);
@@ -719,7 +768,7 @@ function getHDFC(matrix) {
   const { headerRowIndex, map } = detectColumnMap(matrix);
   const excludedRows = getExcludedRowIndices(matrix);
   const rows = parseRows(matrix, map, headerRowIndex, 'HDFC', excludedRows);
-  const out = [], zeroPay = [], missingName = [], mismatches = [];
+  const out = [], zeroPay = [], missingName = [], mismatches = [], nameDeviations = [];
 
   for (const row of rows) {
     const amt     = safeAmount(getCell(row, map, 'netPay'));
@@ -735,16 +784,18 @@ function getHDFC(matrix) {
     if (!account) missingName.push(empCode);
     const mismatch = checkMismatch(empCode, empName, bankName, ifsc);
     if (mismatch) mismatches.push(mismatch);
+    const nameDev = checkNameDeviation(empCode, empName, nibRaw);
+    if (nameDev) nameDeviations.push(nameDev);
     out.push([account, 'C', amt, nameInBank]);
   }
-  return { data: out, zeroPay, missingName, mismatches };
+  return { data: out, zeroPay, missingName, mismatches, nameDeviations };
 }
 
 function getNEFT(matrix, date) {
   const { headerRowIndex, map } = detectColumnMap(matrix);
   const excludedRows = getExcludedRowIndices(matrix);
   const rows = parseRows(matrix, map, headerRowIndex, 'OTHER', excludedRows);
-  const out = [], zeroPay = [], missingIFSC = [], missingAccount = [], mismatches = [];
+  const out = [], zeroPay = [], missingIFSC = [], missingAccount = [], mismatches = [], nameDeviations = [];
 
   for (const row of rows) {
     const amt       = safeAmount(getCell(row, map, 'netPay'));
@@ -761,9 +812,11 @@ function getNEFT(matrix, date) {
     if (!account) missingAccount.push(empCode);
     const mismatch = checkMismatch(empCode, empName, bankName, ifsc);
     if (mismatch) mismatches.push(mismatch);
+    const nameDev = checkNameDeviation(empCode, empName, nibRaw);
+    if (nameDev) nameDeviations.push(nameDev);
     out.push([empCode, nameInBank, account, ifsc, '02', amt, date]);
   }
-  return { data: out, zeroPay, missingIFSC, missingAccount, mismatches };
+  return { data: out, zeroPay, missingIFSC, missingAccount, mismatches, nameDeviations };
 }
 
 function buildTSALContent(data) {
@@ -823,10 +876,10 @@ async function generate() {
     generatedFiles = [
       { name: f1name, content: f1content, type: 'TSAL', label: 'Salary · HDFC→HDFC',
         rows: salHDFC.data.length, total: salHDFC.data.reduce((s,r)=>s+r[2],0),
-        data: salHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: salHDFC.zeroPay, missingName: salHDFC.missingName, mismatches: salHDFC.mismatches } },
+        data: salHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: salHDFC.zeroPay, missingName: salHDFC.missingName, mismatches: salHDFC.mismatches, nameDeviations: salHDFC.nameDeviations } },
       { name: f2name, content: f2content, type: 'TNES', label: 'Salary · HDFC→Others (NEFT)',
         rows: salNEFT.data.length, total: salNEFT.data.reduce((s,r)=>s+r[5],0),
-        data: salNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: salNEFT.zeroPay, missingIFSC: salNEFT.missingIFSC, missingAccount: salNEFT.missingAccount, mismatches: salNEFT.mismatches } },
+        data: salNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: salNEFT.zeroPay, missingIFSC: salNEFT.missingIFSC, missingAccount: salNEFT.missingAccount, mismatches: salNEFT.mismatches, nameDeviations: salNEFT.nameDeviations } },
     ];
 
     if (hasOT) {
@@ -835,10 +888,10 @@ async function generate() {
       generatedFiles.push(
         { name: f3name, content: f3content, type: 'TSAL', label: 'OT · HDFC→HDFC',
           rows: otHDFC.data.length, total: otHDFC.data.reduce((s,r)=>s+r[2],0),
-          data: otHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: otHDFC.zeroPay, missingName: otHDFC.missingName, mismatches: otHDFC.mismatches } },
+          data: otHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: otHDFC.zeroPay, missingName: otHDFC.missingName, mismatches: otHDFC.mismatches, nameDeviations: otHDFC.nameDeviations } },
         { name: f4name, content: f4content, type: 'TNES', label: 'OT · HDFC→Others (NEFT)',
           rows: otNEFT.data.length, total: otNEFT.data.reduce((s,r)=>s+r[5],0),
-          data: otNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: otNEFT.zeroPay, missingIFSC: otNEFT.missingIFSC, missingAccount: otNEFT.missingAccount, mismatches: otNEFT.mismatches } }
+          data: otNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: otNEFT.zeroPay, missingIFSC: otNEFT.missingIFSC, missingAccount: otNEFT.missingAccount, mismatches: otNEFT.mismatches, nameDeviations: otNEFT.nameDeviations } }
       );
     }
 
@@ -899,7 +952,7 @@ function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salShee
 
   // File cards
   const filesGrid = document.getElementById('filesGrid');
-  filesGrid.innerHTML = generatedFiles.map((f,i) => `
+  filesGrid.innerHTML = generatedFiles.map((f,i) => { const issueCount = countIssues(f); return `
     <div class="file-card">
       <div class="file-card-head">
         <div class="file-card-left">
@@ -917,7 +970,7 @@ function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salShee
       <div class="file-stats">
         <div class="fstat"><div class="fstat-val">${f.rows}<span class="u"> rows</span></div><div class="fstat-lbl">Employees</div></div>
         <div class="fstat"><div class="fstat-val">${formatINR(f.total)}</div><div class="fstat-lbl">Total Amount</div></div>
-        <div class="fstat"><div class="fstat-val">${countIssues(f)}<span class="u"> flags</span></div><div class="fstat-lbl">Discrepancies</div></div>
+        <div class="fstat${issueCount>0?' fstat-flags':''}"${issueCount>0?` onmouseenter="showFlagsPopup(event, ${i})" onmouseleave="hideFlagsPopup()"`:''}><div class="fstat-val">${issueCount}<span class="u"> flags</span></div><div class="fstat-lbl">Discrepancies</div></div>
       </div>
       <div class="file-preview">
         <button class="preview-toggle" onclick="togglePreview(this)">
@@ -929,7 +982,7 @@ function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salShee
         </div>
       </div>
     </div>
-  `).join('');
+  `; }).join('');
 
   // Discrepancies
   const allDiscrep = buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts);
@@ -965,6 +1018,61 @@ function togglePreview(btn) {
   const isOpen = wrap.classList.toggle('show');
   btn.classList.toggle('open', isOpen);
   btn.childNodes[1].textContent = isOpen ? ' Hide preview' : ' Preview first 10 rows';
+}
+
+// ═══════════════════════════════════════════
+//  FLAGS HOVER POPUP
+// ═══════════════════════════════════════════
+const FLAG_LABELS = {
+  zeroPay:        'Zero Net Pay — excluded',
+  missingName:    'Missing Account No.',
+  missingIFSC:    'Missing IFSC',
+  missingAccount: 'Missing Account No.',
+  mismatches:     'IFSC / Bank Name mismatch',
+};
+
+function buildFlagsPopupHTML(f) {
+  const sections = [];
+  for (const [key, label] of Object.entries(FLAG_LABELS)) {
+    const arr = f.issues[key];
+    if (arr && arr.length) {
+      sections.push(`<div class="flag-pop-section"><div class="flag-pop-label">${label} (${arr.length})</div><div class="flag-pop-items">${arr.map(x=>'• '+x).join('<br/>')}</div></div>`);
+    }
+  }
+  const nd = f.issues.nameDeviations || [];
+  const ndMismatch = nd.filter(d=>d.status==='MISMATCH');
+  const ndMinor     = nd.filter(d=>d.status==='MINOR');
+  if (ndMismatch.length) {
+    sections.push(`<div class="flag-pop-section"><div class="flag-pop-label">Name Mismatch (${ndMismatch.length})</div><div class="flag-pop-items">${ndMismatch.map(d=>`• ${d.empCode}: "${d.empName}" vs "${d.nameInBank}"`).join('<br/>')}</div></div>`);
+  }
+  if (ndMinor.length) {
+    sections.push(`<div class="flag-pop-section"><div class="flag-pop-label">Minor Name Deviation (${ndMinor.length})</div><div class="flag-pop-items">${ndMinor.map(d=>`• ${d.empCode}: "${d.empName}" vs "${d.nameInBank}"`).join('<br/>')}</div></div>`);
+  }
+  return sections.length ? sections.join('') : '<div class="flag-pop-empty">No discrepancies</div>';
+}
+
+function showFlagsPopup(evt, idx) {
+  const f = generatedFiles[idx];
+  if (!f) return;
+  const popup = document.getElementById('flagsPopup');
+  popup.innerHTML = buildFlagsPopupHTML(f);
+  popup.style.display = 'block';
+  popup.classList.add('show');
+
+  const rect = evt.currentTarget.getBoundingClientRect();
+  const popW = popup.offsetWidth;
+  let left = rect.left;
+  let top  = rect.bottom + 8;
+  if (left + popW > window.innerWidth - 12) left = Math.max(12, window.innerWidth - popW - 12);
+  if (top + popup.offsetHeight > window.innerHeight - 12) top = rect.top - popup.offsetHeight - 8;
+  popup.style.left = left + 'px';
+  popup.style.top  = top + 'px';
+}
+
+function hideFlagsPopup() {
+  const popup = document.getElementById('flagsPopup');
+  popup.classList.remove('show');
+  popup.style.display = 'none';
 }
 
 function renderPreviewTable(f) {
@@ -1005,6 +1113,36 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts) {
       title: `${allMismatches.length} IFSC / BANK NAME mismatch(es) — highlighted, not blocked`,
       detail: 'These rows were still extracted and routed normally by their BANK NAME column; please double-check them: ' + allMismatches.slice(0,6).join(' · ') + (allMismatches.length>6?` · +${allMismatches.length-6} more`:''),
       tagLabel: 'Mismatch · Row still included'
+    });
+  }
+
+  // EMP Name vs Name in Bank — the one fuzzy-logic comparison in this tool. Every other check
+  // above/below is an exact or rule-based match; this pair alone tolerates spacing, punctuation,
+  // and dropped middle names/initials as a non-issue (Minor Deviation), while flagging names that
+  // share no such overlap as a Mismatch worth a manual look.
+  const allNameDeviations = [
+    ...salHDFC.nameDeviations.map(d=>({...d, src:'SAL-HDFC'})),
+    ...salNEFT.nameDeviations.map(d=>({...d, src:'SAL-NEFT'})),
+    ...(hasOT ? otHDFC.nameDeviations.map(d=>({...d, src:'OT-HDFC'})) : []),
+    ...(hasOT ? otNEFT.nameDeviations.map(d=>({...d, src:'OT-NEFT'})) : []),
+  ];
+  const nameMismatches = allNameDeviations.filter(d => d.status === 'MISMATCH');
+  const nameMinor      = allNameDeviations.filter(d => d.status === 'MINOR');
+
+  if (nameMismatches.length) {
+    const fmt = d => `${d.src}: ${d.empCode} — "${d.empName}" vs "${d.nameInBank}"`;
+    items.push({ type:'err', icon:'🧾',
+      title: `${nameMismatches.length} EMP Name / Name in Bank mismatch(es) — fuzzy check`,
+      detail: 'Row still included and routed normally; names share no overlapping tokens once normalized: ' + nameMismatches.slice(0,6).map(fmt).join(' · ') + (nameMismatches.length>6?` · +${nameMismatches.length-6} more`:''),
+      tagLabel: 'Name Mismatch · Review required'
+    });
+  }
+  if (nameMinor.length) {
+    const fmt = d => `${d.src}: ${d.empCode} — "${d.empName}" vs "${d.nameInBank}"`;
+    items.push({ type:'warn', icon:'✏️',
+      title: `${nameMinor.length} EMP Name / Name in Bank minor deviation(s) — fuzzy check`,
+      detail: 'Likely just spacing, punctuation, or a dropped middle name/initial: ' + nameMinor.slice(0,6).map(fmt).join(' · ') + (nameMinor.length>6?` · +${nameMinor.length-6} more`:''),
+      tagLabel: 'Minor Deviation · Likely fine'
     });
   }
 
