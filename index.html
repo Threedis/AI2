@@ -542,17 +542,31 @@ function checkReady() {
 // ═══════════════════════════════════════════
 
 // Keywords used to identify each logical column (case-insensitive partial match).
-// Order matters: first match wins. More specific keywords come first.
+// Matching is done on NORMALIZED text (see normalizeHeader below), so spacing, underscores, dots
+// and slashes in the header don't matter — "BANK AC NO", "BANK_AC_NO", "Bank A/c No." and
+// "BANKACNO" all normalize to the same string and match the 'bankacno' keyword; likewise
+// "EMP_CODE", "EMP CODE" and "Emp. Code" all normalize to match the 'empcode' keyword.
+// Field order matters: fields with narrow/specific keywords are listed before bankName, whose
+// only generic fallback is the bare word 'bank' — that fallback would otherwise wrongly grab a
+// column like "BANK AC NO" before the account field gets a chance to claim it as its own.
 const COL_KEYWORDS = {
   serialNo:   ['sl no', 'slno', 'sr no', 'srno', 's.no', 'serial'],
   empCode:    ['emp_code', 'emp code', 'empcode', 'employee code', 'emp. code'],
   empName:    ['emp_name', 'emp name', 'empname', 'employee name', 'emp. name'],
-  bankName:   ['bank name', 'bank_name', 'bankname', 'bank'],
-  account:    ['account no', 'account number', 'acc no', 'acc. no', 'acct no', 'bankacno', 'bank acno', 'account'],
+  account:    ['account no', 'account number', 'acc no', 'acc. no', 'acct no', 'bankacno', 'bank ac no', 'bank acno', 'account'],
   netPay:     ['net pay', 'net_pay', 'netpay', 'net salary', 'amount'],
   ifsc:       ['ifsc code', 'ifsc_code', 'ifsccode', 'ifsc'],
   nameInBank: ['name in bank', 'name_in_bank', 'bank name as per', 'name as per bank', 'beneficiary name'],
+  bankName:   ['bank name', 'bank_name', 'bankname', 'bank'],
 };
+
+// Normalizes a header cell (or keyword) for matching: uppercase, strip everything except
+// letters and digits. This makes spacing/punctuation/underscore variants of the same header
+// equivalent, so keyword lists don't need to enumerate every possible way a column might be
+// spaced or punctuated — e.g. "BANK AC NO" and "BANKACNO" both normalize to "BANKACNO".
+function normalizeHeader(s) {
+  return String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
 
 function sheetToMatrix(wb, exactSheetName) {
   const ws = wb.Sheets[exactSheetName];
@@ -586,14 +600,21 @@ function detectColumnMap(matrix) {
     const textCells = row.filter(c => c !== null && c !== undefined && isNaN(Number(c)) && String(c).trim() !== '');
     if (textCells.length < 3) continue;
 
-    // Try to map each logical field to a column index
+    // Try to map each logical field to a column index. Matching uses normalized text (spacing/
+    // punctuation/underscores stripped), and each column can only satisfy one field — once
+    // claimed, later fields skip it — so an ambiguous header like "BANK AC NO" (which also
+    // contains the word "BANK") can't be double-claimed by both bankName and account.
     const map = {};
+    const usedCols = new Set();
     for (const [field, keywords] of Object.entries(COL_KEYWORDS)) {
       for (let c = 0; c < row.length; c++) {
+        if (usedCols.has(c)) continue;
         if (row[c] === null || row[c] === undefined) continue;
-        const cell = String(row[c]).toLowerCase().trim();
-        if (keywords.some(kw => cell.includes(kw))) {
-          if (!(field in map)) map[field] = c; // first match wins
+        const cell = normalizeHeader(row[c]);
+        if (keywords.some(kw => cell.includes(normalizeHeader(kw)))) {
+          map[field] = c;
+          usedCols.add(c);
+          break; // first match wins for this field
         }
       }
     }
@@ -650,9 +671,13 @@ function getSectionBlocks(matrix) {
 }
 
 function isHeaderRow(row) {
-  const text = row.map(c => safeStr(c).toLowerCase()).join(' ');
-  return COL_KEYWORDS.serialNo.some(kw => text.includes(kw)) ||
-         COL_KEYWORDS.empCode.some(kw => text.includes(kw));
+  return row.some(c => {
+    const cell = normalizeHeader(safeStr(c));
+    return cell && (
+      COL_KEYWORDS.serialNo.some(kw => cell.includes(normalizeHeader(kw))) ||
+      COL_KEYWORDS.empCode.some(kw => cell.includes(normalizeHeader(kw)))
+    );
+  });
 }
 
 function classifyBlock(matrix, start, end) {
