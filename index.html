@@ -605,41 +605,117 @@ function findDataSheets(wb) {
   return { salSheetName: salaryFound, otSheetName: otFound };
 }
 
-// Scan the matrix for a header row and return a column-index map keyed by logical field names.
-// A header row is identified as the first row where ≥3 cells are non-null non-numeric strings.
+// Checks whether a column's actual DATA (not its header) looks like BANK NAME values
+// ("HDFC BANK LTD." / "OTHER BANKS"), as opposed to free-text like a person's name. Used to
+// disambiguate when a sheet has two columns that are both headered "BANK NAME" — only one of
+// them actually contains bank-type values; the other is really NAME IN BANK, just carrying the
+// same header text by mistake. Bounded to [headerRowIndex+1, boundEnd) — normally the current
+// section's own block — so sampling doesn't bleed into a different section's data.
+function looksLikeBankNameColumn(matrix, headerRowIndex, colIdx, boundEnd, sampleSize = 15) {
+  let checked = 0, matches = 0;
+  const end = Math.min(boundEnd, matrix.length);
+  for (let r = headerRowIndex + 1; r < end && checked < sampleSize; r++) {
+    const row = matrix[r];
+    if (!row || colIdx >= row.length) continue;
+    const v = row[colIdx];
+    if (v === null || v === undefined || String(v).trim() === '') continue;
+    checked++;
+    const u = String(v).toUpperCase();
+    if (u.includes('HDFC') || u.includes('OTHER')) matches++;
+  }
+  if (checked === 0) return false;
+  return (matches / checked) >= 0.5; // majority of sampled values look like bank-type text
+}
+
+// Computes ONE row's own column map (field -> column index) from its header text alone —
+// the per-field keyword matching, with each column exclusive to one field.
+function detectRowColumnMap(row) {
+  const map = {};
+  const usedCols = new Set();
+  for (const [field, keywords] of Object.entries(COL_KEYWORDS)) {
+    for (let c = 0; c < row.length; c++) {
+      if (usedCols.has(c)) continue;
+      if (row[c] === null || row[c] === undefined) continue;
+      const cell = normalizeHeader(row[c]);
+      if (keywords.some(kw => cell.includes(normalizeHeader(kw)))) {
+        map[field] = c;
+        usedCols.add(c);
+        break; // first match wins for this field
+      }
+    }
+  }
+  return map;
+}
+
+// Scans the WHOLE sheet for column headers and merges them into one map. This file format can
+// have a separate header row per section (BANK/NEFT/HOLD), and different sections aren't always
+// spelled identically — e.g. one section's header might read "IFCS" (a typo) while another
+// section's own header correctly reads "IFSC". Locking onto only the FIRST header row found
+// would silently lose fields any later section could have supplied. Instead: check every
+// qualifying header row in the sheet, and for each field, keep the first value found for it —
+// so a gap in an earlier section's header can still be filled from a later section's header.
 function detectColumnMap(matrix) {
-  for (let r = 0; r < Math.min(matrix.length, 15); r++) {
+  const blocks = getSectionBlocks(matrix);
+  const mergedMap = {};
+  let firstHeaderRowIndex = -1;
+
+  for (let r = 0; r < matrix.length; r++) {
     const row = matrix[r];
     const textCells = row.filter(c => c !== null && c !== undefined && isNaN(Number(c)) && String(c).trim() !== '');
     if (textCells.length < 3) continue;
 
-    // Try to map each logical field to a column index. Matching uses normalized text (spacing/
-    // punctuation/underscores stripped), and each column can only satisfy one field — once
-    // claimed, later fields skip it — so an ambiguous header like "BANK AC NO" (which also
-    // contains the word "BANK") can't be double-claimed by both bankName and account.
-    const map = {};
-    const usedCols = new Set();
-    for (const [field, keywords] of Object.entries(COL_KEYWORDS)) {
-      for (let c = 0; c < row.length; c++) {
-        if (usedCols.has(c)) continue;
-        if (row[c] === null || row[c] === undefined) continue;
-        const cell = normalizeHeader(row[c]);
-        if (keywords.some(kw => cell.includes(normalizeHeader(kw)))) {
-          map[field] = c;
-          usedCols.add(c);
-          break; // first match wins for this field
+    const rowMap = detectRowColumnMap(row);
+
+    // Disambiguate duplicate "BANK NAME" headers within this row (see looksLikeBankNameColumn),
+    // bounded to this row's own enclosing section block so sampling doesn't bleed into another
+    // section's data.
+    const enclosingBlock = blocks.find(([s, e]) => r >= s && r < e);
+    const blockEnd = enclosingBlock ? enclosingBlock[1] : matrix.length;
+    // Columns already claimed by a different, more specific field (e.g. 'account' claiming
+    // "BANK AC NO") must be excluded here — bankName's generic 'bank' fallback keyword would
+    // otherwise falsely treat them as another "BANK NAME" duplicate candidate.
+    const claimedByOtherField = new Set(
+      Object.entries(rowMap).filter(([f]) => f !== 'bankName').map(([, idx]) => idx)
+    );
+    const bankNameHeaderCols = [];
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] === null || row[c] === undefined) continue;
+      if (claimedByOtherField.has(c)) continue;
+      const cell = normalizeHeader(row[c]);
+      if (COL_KEYWORDS.bankName.some(kw => cell.includes(normalizeHeader(kw)))) {
+        bankNameHeaderCols.push(c);
+      }
+    }
+    if (bankNameHeaderCols.length > 1) {
+      const scored = bankNameHeaderCols.map(c => ({ c, bankLike: looksLikeBankNameColumn(matrix, r, c, blockEnd) }));
+      const trueBankCol = scored.find(s => s.bankLike);
+      if (trueBankCol) {
+        rowMap.bankName = trueBankCol.c;
+        const otherCol = scored.find(s => s.c !== trueBankCol.c && !s.bankLike);
+        if (otherCol && !('nameInBank' in rowMap)) {
+          rowMap.nameInBank = otherCol.c;
         }
       }
     }
 
-    // Accept this row as header if we found at least serialNo + account + netPay. BANK NAME is
-    // NOT required — if the column isn't present at all, effectiveBankName() derives it per row
-    // from the IFSC code instead (see below).
-    if ('serialNo' in map && 'account' in map && 'netPay' in map) {
-      return { headerRowIndex: r, map };
+    // Accept this row as a qualifying header if we found at least serialNo + account + netPay.
+    // BANK NAME is NOT required — if the column isn't present at all, effectiveBankName() derives
+    // it per row from the IFSC code instead (see below).
+    if (!('serialNo' in rowMap && 'account' in rowMap && 'netPay' in rowMap)) continue;
+
+    if (firstHeaderRowIndex === -1) firstHeaderRowIndex = r;
+    // Merge: first header row to supply a field wins it. A later section's header can still
+    // fill in a field an earlier section's header failed to match (e.g. a typo).
+    for (const [field, colIdx] of Object.entries(rowMap)) {
+      if (!(field in mergedMap)) mergedMap[field] = colIdx;
     }
   }
-  // Fallback to skill-spec fixed positions if no header detected
+
+  if (firstHeaderRowIndex !== -1) {
+    return { headerRowIndex: firstHeaderRowIndex, map: mergedMap };
+  }
+
+  // Fallback to skill-spec fixed positions if no header detected anywhere in the sheet
   console.warn('No header row detected — falling back to fixed column positions per skill spec');
   return {
     headerRowIndex: -1,
@@ -811,8 +887,16 @@ function countExcludedBySection(matrix) {
     if (type !== 'HOLD' && type !== 'CHEQUE') continue;
     const dataStart = headerIdx !== null ? headerIdx + 1 : start;
     for (let r = dataStart; r < end; r++) {
-      const serial = getCell(matrix[r], map, 'serialNo');
-      if (serial !== null && /^\d+$/.test(String(serial).trim())) counts[type]++;
+      const row = matrix[r];
+      const serial = getCell(row, map, 'serialNo');
+      if (serial === null || !/^\d+$/.test(String(serial).trim())) continue;
+      // A row with a serial number but no EMP_CODE and no EMP_NAME is a blank/template
+      // placeholder (common in HOLD/CHEQUE sections that exist in the format but have no one
+      // in them that month) — not a real employee, so don't count it as one.
+      const empCode = safeStr(getCell(row, map, 'empCode'));
+      const empName = safeStr(getCell(row, map, 'empName'));
+      if (!empCode && !empName) continue;
+      counts[type]++;
     }
   }
   return counts;
@@ -835,7 +919,13 @@ function getHDFC(matrix) {
     const bankName = effectiveBankName(row, map);
     const ifsc    = safeStr(getCell(row, map, 'ifsc')).toUpperCase();
 
-    if (amt === 0) { zeroPay.push(empCode + ' (' + empName + ')'); continue; }
+    if (amt === 0) {
+      // Only report this as an "excluded" employee if there's an actual identity (code or name)
+      // to point to. A row with amount=0 AND no code AND no name is a blank/junk row, not a real
+      // employee — silently skip it rather than raising a hollow "() excluded" card.
+      if (empCode || empName) zeroPay.push(empCode + ' (' + empName + ')');
+      continue;
+    }
     if (!account) missingName.push(empCode);
     if (!bankNameRaw) derivedBankName.push(empCode + ' (' + empName + ') → ' + bankName);
     const mismatch = checkMismatch(empCode, empName, bankName, ifsc);
@@ -864,7 +954,13 @@ function getNEFT(matrix, date) {
     const bankNameRaw = safeStr(getCell(row, map, 'bankName'));
     const bankName  = effectiveBankName(row, map);
 
-    if (amt === 0) { zeroPay.push(empCode + ' (' + empName + ')'); continue; }
+    if (amt === 0) {
+      // Only report this as an "excluded" employee if there's an actual identity (code or name)
+      // to point to. A row with amount=0 AND no code AND no name is a blank/junk row, not a real
+      // employee — silently skip it rather than raising a hollow "() excluded" card.
+      if (empCode || empName) zeroPay.push(empCode + ' (' + empName + ')');
+      continue;
+    }
     if (!ifsc)    missingIFSC.push(empCode + ' (' + empName + ')');
     if (!account) missingAccount.push(empCode);
     if (!bankNameRaw) derivedBankName.push(empCode + ' (' + empName + ') → ' + bankName);
@@ -951,10 +1047,12 @@ async function generate() {
         name: fname, content: cat.build(cat.result.data), type: cat.type, label: cat.label,
         rows: cat.result.data.length, total: cat.result.data.reduce((s,r)=>s+r[cat.amountIdx],0),
         data: cat.result.data, headers: cat.headers,
+        // Only genuine issues are surfaced as flags: minor name deviations and BANK NAME derived
+        // from IFSC are routine/expected, so they're excluded here (not counted, not in the popup).
         issues: { zeroPay: cat.result.zeroPay, missingName: cat.result.missingName,
                   missingIFSC: cat.result.missingIFSC, missingAccount: cat.result.missingAccount,
-                  mismatches: cat.result.mismatches, nameDeviations: cat.result.nameDeviations,
-                  derivedBankName: cat.result.derivedBankName },
+                  mismatches: cat.result.mismatches,
+                  nameDeviations: (cat.result.nameDeviations||[]).filter(d=>d.status==='MISMATCH') },
       });
     }
 
@@ -1063,9 +1161,11 @@ function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salShee
   const allDiscrep = buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, skippedCategories);
   const discrepGrid = document.getElementById('discrepGrid');
   const discrepCount = document.getElementById('discrepCount');
-  // Only 'warn' and 'err' cards represent genuine issues. 'info' cards (e.g. "No OT sheet found",
-  // BANK NAME derived from IFSC, categories skipped because empty) are neutral/expected states,
-  // not problems, and 'ok' cards are explicitly good news — neither should inflate this count.
+  // Only 'warn' and 'err' cards represent genuine issues (e.g. a real BANK NAME/IFSC mismatch, a
+  // Name Mismatch, missing IFSC/account). Routine/expected states (no OT sheet, an empty
+  // category, BANK NAME derived from IFSC, minor name deviations) aren't reported as cards at
+  // all — see buildDiscrepancies — and 'ok' cards are explicitly good news, so neither type
+  // should inflate this count.
   const issueCount = allDiscrep.filter(d=>d.type==='warn' || d.type==='err').length;
   discrepCount.textContent = issueCount === 0 ? '✓ No issues' : issueCount + ' issues found';
   discrepCount.className = 'discrep-count' + (issueCount===0?' zero':'');
@@ -1102,12 +1202,11 @@ function togglePreview(btn) {
 //  FLAGS HOVER POPUP
 // ═══════════════════════════════════════════
 const FLAG_LABELS = {
-  zeroPay:         'Zero Net Pay — excluded',
-  missingName:     'Missing Account No.',
-  missingIFSC:     'Missing IFSC',
-  missingAccount:  'Missing Account No.',
-  mismatches:      'IFSC / Bank Name mismatch',
-  derivedBankName: 'BANK NAME derived from IFSC',
+  zeroPay:        'Zero Net Pay — excluded',
+  missingName:    'Missing Account No.',
+  missingIFSC:    'Missing IFSC',
+  missingAccount: 'Missing Account No.',
+  mismatches:     'IFSC / Bank Name mismatch',
 };
 
 function buildFlagsPopupHTML(f) {
@@ -1118,14 +1217,11 @@ function buildFlagsPopupHTML(f) {
       sections.push(`<div class="flag-pop-section"><div class="flag-pop-label">${label} (${arr.length})</div><div class="flag-pop-items">${arr.map(x=>'• '+x).join('<br/>')}</div></div>`);
     }
   }
+  // Only major Name Mismatches ever reach here — minor deviations are filtered out upstream
+  // (routine spacing/punctuation/middle-name differences, not worth flagging).
   const nd = f.issues.nameDeviations || [];
-  const ndMismatch = nd.filter(d=>d.status==='MISMATCH');
-  const ndMinor     = nd.filter(d=>d.status==='MINOR');
-  if (ndMismatch.length) {
-    sections.push(`<div class="flag-pop-section"><div class="flag-pop-label">Name Mismatch (${ndMismatch.length})</div><div class="flag-pop-items">${ndMismatch.map(d=>`• ${d.empCode}: "${d.empName}" vs "${d.nameInBank}"`).join('<br/>')}</div></div>`);
-  }
-  if (ndMinor.length) {
-    sections.push(`<div class="flag-pop-section"><div class="flag-pop-label">Minor Name Deviation (${ndMinor.length})</div><div class="flag-pop-items">${ndMinor.map(d=>`• ${d.empCode}: "${d.empName}" vs "${d.nameInBank}"`).join('<br/>')}</div></div>`);
+  if (nd.length) {
+    sections.push(`<div class="flag-pop-section"><div class="flag-pop-label">Name Mismatch (${nd.length})</div><div class="flag-pop-items">${nd.map(d=>`• ${d.empCode}: "${d.empName}" vs "${d.nameInBank}"`).join('<br/>')}</div></div>`);
   }
   return sections.length ? sections.join('') : '<div class="flag-pop-empty">No discrepancies</div>';
 }
@@ -1181,13 +1277,9 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, sk
     });
   }
 
-  if (skippedCategories && skippedCategories.length) {
-    items.push({ type:'info', icon:'⏭️',
-      title: `${skippedCategories.length} of ${hasOT?4:2} possible file(s) skipped — no data in that category`,
-      detail: 'Not written and no serial number consumed for: ' + skippedCategories.join(', ') + '. A run can produce anywhere from 1 to 4 files depending on what the sheet actually contains.',
-      tagLabel: 'Skipped · Category empty'
-    });
-  }
+  // Note: an empty category (no HDFC section found, no OT sheet, a category with zero rows
+  // after filtering) is a normal, expected outcome — not reported here. It's silently skipped
+  // when writing files (see the 1-4 files behavior), with no discrepancy card raised about it.
 
   const allMismatches = [
     ...salHDFC.mismatches.map(m=>'SAL-HDFC: '+m),
@@ -1204,9 +1296,9 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, sk
   }
 
   // EMP Name vs Name in Bank — the one fuzzy-logic comparison in this tool. Every other check
-  // above/below is an exact or rule-based match; this pair alone tolerates spacing, punctuation,
-  // and dropped middle names/initials as a non-issue (Minor Deviation), while flagging names that
-  // share no such overlap as a Mismatch worth a manual look.
+  // above/below is an exact or rule-based match. Minor deviations (spacing, punctuation, a
+  // dropped middle name/initial) are expected and not reported — only a genuine Mismatch
+  // (no overlapping tokens once normalized) is surfaced, since that's the only case worth a look.
   const allNameDeviations = [
     ...salHDFC.nameDeviations.map(d=>({...d, src:'SAL-HDFC'})),
     ...salNEFT.nameDeviations.map(d=>({...d, src:'SAL-NEFT'})),
@@ -1214,7 +1306,6 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, sk
     ...(hasOT ? otNEFT.nameDeviations.map(d=>({...d, src:'OT-NEFT'})) : []),
   ];
   const nameMismatches = allNameDeviations.filter(d => d.status === 'MISMATCH');
-  const nameMinor      = allNameDeviations.filter(d => d.status === 'MINOR');
 
   if (nameMismatches.length) {
     const fmt = d => `${d.src}: ${d.empCode} — "${d.empName}" vs "${d.nameInBank}"`;
@@ -1224,28 +1315,9 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, sk
       tagLabel: 'Name Mismatch · Review required'
     });
   }
-  if (nameMinor.length) {
-    const fmt = d => `${d.src}: ${d.empCode} — "${d.empName}" vs "${d.nameInBank}"`;
-    items.push({ type:'warn', icon:'✏️',
-      title: `${nameMinor.length} EMP Name / Name in Bank minor deviation(s) — fuzzy check`,
-      detail: 'Likely just spacing, punctuation, or a dropped middle name/initial: ' + nameMinor.slice(0,6).map(fmt).join(' · ') + (nameMinor.length>6?` · +${nameMinor.length-6} more`:''),
-      tagLabel: 'Minor Deviation · Likely fine'
-    });
-  }
 
-  const allDerivedBankName = [
-    ...salHDFC.derivedBankName.map(d=>'SAL-HDFC: '+d),
-    ...salNEFT.derivedBankName.map(d=>'SAL-NEFT: '+d),
-    ...(hasOT ? otHDFC.derivedBankName.map(d=>'OT-HDFC: '+d) : []),
-    ...(hasOT ? otNEFT.derivedBankName.map(d=>'OT-NEFT: '+d) : []),
-  ];
-  if (allDerivedBankName.length) {
-    items.push({ type:'info', icon:'🔎',
-      title: `${allDerivedBankName.length} employee(s) had BANK NAME derived from IFSC`,
-      detail: 'No BANK NAME column/value was provided for these rows, so it was inferred from the IFSC code (blank IFSC is treated as HDFC-to-HDFC): ' + allDerivedBankName.slice(0,6).join(' · ') + (allDerivedBankName.length>6?` · +${allDerivedBankName.length-6} more`:''),
-      tagLabel: 'BANK NAME derived · Please verify'
-    });
-  }
+  // Note: BANK NAME derived from IFSC (when the column/value was missing) is not reported here —
+  // it's a routine, expected fallback, not something that needs the user's attention.
 
   const allZeroPay = [
     ...salHDFC.zeroPay.map(e=>'SAL-HDFC: '+e),
@@ -1306,7 +1378,7 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, sk
   items.push({ type:'info', icon:'ℹ️',
     title: hasOT
       ? `${salEmp} salary employees · ${otEmp} OT employees`
-      : `${salEmp} salary employees · No OT sheet found`,
+      : `${salEmp} salary employees`,
     detail: hasOT
       ? `HDFC employees: ${salHDFC.data.length} (sal) + ${otHDFC.data.length} (OT) · NEFT employees: ${salNEFT.data.length} (sal) + ${otNEFT.data.length} (OT)`
       : `HDFC employees: ${salHDFC.data.length} (sal) · NEFT employees: ${salNEFT.data.length} (sal) · ${fileCount} file${fileCount===1?'':'s'} generated`,
