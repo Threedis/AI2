@@ -219,12 +219,12 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
 
       <p class="hero-desc">This utility automates the generation of HDFC bulk salary payment files — <strong>275TSAL</strong> (HDFC-to-HDFC internal transfers) and <strong>275TNES</strong> (NEFT transfers to other banks) — directly from your monthly Bank Advise Excel sheet. No manual formatting, no copy-paste errors.</p>
 
-      <p class="hero-desc" style="margin-top:-8px;">The tool detects whether both a Salary sheet and an OT sheet are present in the uploaded file. If both are found, <strong>4 files</strong> are generated in one run; if only the Salary sheet is present, <strong>2 files</strong> are generated. Column order in the Excel does not matter — headers are auto-detected by name.</p>
+      <p class="hero-desc" style="margin-top:-8px;">The tool detects whether both a Salary sheet and an OT sheet are present in the uploaded file, and only writes a file for a category (Salary/OT × HDFC/NEFT) if that category actually has data after filtering — so a single run can produce anywhere from <strong>1 to 4 files</strong>, not a fixed count. Column order in the Excel does not matter — headers are auto-detected by name, and unrecognized extra columns are simply ignored.</p>
 
       <!-- KPI strip -->
       <div class="kpi-row" style="margin-bottom:24px;">
         <div class="kpi">
-          <div class="kpi-val" id="heroFileCount">2–4<span class="u"> files</span></div>
+          <div class="kpi-val" id="heroFileCount">1–4<span class="u"> files</span></div>
           <div class="kpi-lbl">Per Run</div>
         </div>
         <div class="kpi">
@@ -251,6 +251,16 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
             <div>
               <div style="font-size:13px;font-weight:600;color:var(--ink);">Upload the Bank Advise Excel</div>
               <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Drag and drop or click to browse. The file must contain a Salary sheet (and optionally an OT sheet). Supported: <code style="font-size:11px;background:var(--surface);padding:1px 5px;border-radius:3px;">.xlsx / .xls</code></div>
+              <div style="font-size:11.5px;color:var(--ink-3);margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 12px;">
+                <div style="font-weight:700;color:var(--ink-2);margin-bottom:5px;">Expected columns (any order, header spelling flexible):</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;">
+                  <div>1. Serial No</div><div>5. Net Pay (amount)</div>
+                  <div>2. EMP Code</div><div>6. IFSC Code</div>
+                  <div>3. EMP Name</div><div>7. Name in Bank</div>
+                  <div>4. Account Number</div><div>8. Bank Name <span style="color:var(--ink-4);">(optional*)</span></div>
+                </div>
+                <div style="margin-top:6px;color:var(--ink-4);">*If Bank Name is missing, it's derived per row from the IFSC code ("HDFC" prefix → HDFC BANK LTD., else OTHER BANKS; blank IFSC is treated as HDFC-to-HDFC). Any extra/unrecognized column in the file is simply ignored.</div>
+              </div>
             </div>
           </div>
 
@@ -332,7 +342,7 @@ footer p{color:rgba(255,255,255,.3);font-size:12px;}
       <!-- Serial preview -->
       <div id="serialPreview" style="margin-top:10px;display:none;">
         <div style="background:var(--blue-xlight);border:1px solid rgba(0,76,143,.15);border-radius:var(--r);padding:10px 14px;">
-          <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Output Filenames Preview</div>
+          <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Output Filenames Preview <span style="font-weight:600;color:var(--ink-4);text-transform:none;letter-spacing:0;">(maximum possible — actual run may produce fewer)</span></div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;" id="filenamePreviewRow"></div>
         </div>
       </div>
@@ -457,7 +467,7 @@ function loadFile(file) {
 
       // Detect OT sheet and update serial hint
       const hasOT = !!otSheetName;
-      document.getElementById('heroFileCount').innerHTML = (hasOT ? '4' : '2') + '<span class="u"> files</span>';
+      document.getElementById('heroFileCount').innerHTML = '≤' + (hasOT ? '4' : '2') + '<span class="u"> files</span>';
       document.getElementById('heroSheets').innerHTML = hasOT ? 'SAL<span class="u">+OT</span>' : 'SAL<span class="u"> only</span>';
       document.getElementById('serialHint').textContent = hasOT
         ? 'Files will use serials +1 → +4 (Salary + OT)'
@@ -581,7 +591,10 @@ function findDataSheets(wb) {
   for (const name of wb.SheetNames) {
     const matrix = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: null });
     const { headerRowIndex, map } = detectColumnMap(matrix);
-    const qualifies = headerRowIndex >= 0 && 'serialNo' in map && 'bankName' in map && 'netPay' in map;
+    // BANK NAME is optional (derived from IFSC when absent — see effectiveBankName), so it's not
+    // required here. ACCOUNT is required instead, as the anchor confirming this is genuinely a
+    // bank-advice sheet and not some unrelated sheet that happens to have SL NO / NET PAY columns.
+    const qualifies = headerRowIndex >= 0 && 'serialNo' in map && 'account' in map && 'netPay' in map;
     if (!qualifies) continue;
     if (name.toUpperCase().includes('OT')) {
       if (!otFound) otFound = name;
@@ -619,8 +632,10 @@ function detectColumnMap(matrix) {
       }
     }
 
-    // Accept this row as header if we found at least serialNo + bankName + netPay
-    if ('serialNo' in map && 'bankName' in map && 'netPay' in map) {
+    // Accept this row as header if we found at least serialNo + account + netPay. BANK NAME is
+    // NOT required — if the column isn't present at all, effectiveBankName() derives it per row
+    // from the IFSC code instead (see below).
+    if ('serialNo' in map && 'account' in map && 'netPay' in map) {
       return { headerRowIndex: r, map };
     }
   }
@@ -712,6 +727,20 @@ function getExcludedRowIndices(matrix) {
   return excluded;
 }
 
+// Derives an effective BANK NAME for a row when the BANK NAME column is missing entirely, or
+// blank for this specific row. Falls back to the raw column value whenever it's present — this
+// derivation only kicks in as a last resort.
+// Rule: derive from IFSC — IFSC starting with "HDFC" means the account is with HDFC Bank,
+// otherwise it's some other bank. A blank IFSC (with no BANK NAME to fall back on either) is
+// treated as an internal HDFC-to-HDFC transfer, since IFSC is conventionally omitted for those.
+function effectiveBankName(row, colMap) {
+  const raw = safeStr(getCell(row, colMap, 'bankName')).toUpperCase();
+  if (raw) return raw;
+  const ifsc = safeStr(getCell(row, colMap, 'ifsc')).toUpperCase();
+  if (!ifsc) return 'HDFC BANK LTD.';
+  return ifsc.startsWith('HDFC') ? 'HDFC BANK LTD.' : 'OTHER BANKS';
+}
+
 function parseRows(matrix, colMap, headerRowIndex, bankType, excludedRows) {
   const rows = [];
   for (let r = headerRowIndex + 1; r < matrix.length; r++) {
@@ -721,7 +750,7 @@ function parseRows(matrix, colMap, headerRowIndex, bankType, excludedRows) {
     if (serial === null || serial === undefined) continue;
     const s = String(serial).trim();
     if (!/^\d+$/.test(s)) continue; // skip blank/header rows
-    const bankName = safeStr(getCell(row, colMap, 'bankName')).toUpperCase();
+    const bankName = effectiveBankName(row, colMap);
     if (!bankName.includes(bankType)) continue;
     rows.push(row);
   }
@@ -793,7 +822,7 @@ function getHDFC(matrix) {
   const { headerRowIndex, map } = detectColumnMap(matrix);
   const excludedRows = getExcludedRowIndices(matrix);
   const rows = parseRows(matrix, map, headerRowIndex, 'HDFC', excludedRows);
-  const out = [], zeroPay = [], missingName = [], mismatches = [], nameDeviations = [];
+  const out = [], zeroPay = [], missingName = [], mismatches = [], nameDeviations = [], derivedBankName = [];
 
   for (const row of rows) {
     const amt     = safeAmount(getCell(row, map, 'netPay'));
@@ -802,25 +831,27 @@ function getHDFC(matrix) {
     const nibRaw  = safeStr(getCell(row, map, 'nameInBank')).toUpperCase();
     const nameInBank = nibRaw || empName;
     const account = safeStr(getCell(row, map, 'account'));
-    const bankName = safeStr(getCell(row, map, 'bankName'));
+    const bankNameRaw = safeStr(getCell(row, map, 'bankName'));
+    const bankName = effectiveBankName(row, map);
     const ifsc    = safeStr(getCell(row, map, 'ifsc')).toUpperCase();
 
     if (amt === 0) { zeroPay.push(empCode + ' (' + empName + ')'); continue; }
     if (!account) missingName.push(empCode);
+    if (!bankNameRaw) derivedBankName.push(empCode + ' (' + empName + ') → ' + bankName);
     const mismatch = checkMismatch(empCode, empName, bankName, ifsc);
     if (mismatch) mismatches.push(mismatch);
     const nameDev = checkNameDeviation(empCode, empName, nibRaw);
     if (nameDev) nameDeviations.push(nameDev);
     out.push([account, 'C', amt, nameInBank]);
   }
-  return { data: out, zeroPay, missingName, mismatches, nameDeviations };
+  return { data: out, zeroPay, missingName, mismatches, nameDeviations, derivedBankName };
 }
 
 function getNEFT(matrix, date) {
   const { headerRowIndex, map } = detectColumnMap(matrix);
   const excludedRows = getExcludedRowIndices(matrix);
   const rows = parseRows(matrix, map, headerRowIndex, 'OTHER', excludedRows);
-  const out = [], zeroPay = [], missingIFSC = [], missingAccount = [], mismatches = [], nameDeviations = [];
+  const out = [], zeroPay = [], missingIFSC = [], missingAccount = [], mismatches = [], nameDeviations = [], derivedBankName = [];
 
   for (const row of rows) {
     const amt       = safeAmount(getCell(row, map, 'netPay'));
@@ -830,18 +861,20 @@ function getNEFT(matrix, date) {
     const nameInBank= nibRaw || empName;
     const account   = safeStr(getCell(row, map, 'account'));
     const ifsc      = safeStr(getCell(row, map, 'ifsc')).toUpperCase();
-    const bankName  = safeStr(getCell(row, map, 'bankName'));
+    const bankNameRaw = safeStr(getCell(row, map, 'bankName'));
+    const bankName  = effectiveBankName(row, map);
 
     if (amt === 0) { zeroPay.push(empCode + ' (' + empName + ')'); continue; }
     if (!ifsc)    missingIFSC.push(empCode + ' (' + empName + ')');
     if (!account) missingAccount.push(empCode);
+    if (!bankNameRaw) derivedBankName.push(empCode + ' (' + empName + ') → ' + bankName);
     const mismatch = checkMismatch(empCode, empName, bankName, ifsc);
     if (mismatch) mismatches.push(mismatch);
     const nameDev = checkNameDeviation(empCode, empName, nibRaw);
     if (nameDev) nameDeviations.push(nameDev);
     out.push([empCode, nameInBank, account, ifsc, '02', amt, date]);
   }
-  return { data: out, zeroPay, missingIFSC, missingAccount, mismatches, nameDeviations };
+  return { data: out, zeroPay, missingIFSC, missingAccount, mismatches, nameDeviations, derivedBankName };
 }
 
 function buildTSALContent(data) {
@@ -874,7 +907,7 @@ async function generate() {
   try {
     const ddmm    = getDDMM();
     const yyyymmdd= getYYYYMMDD();
-    const ls      = parseInt(lastSerialInput.value);
+    let serial    = parseInt(lastSerialInput.value);
 
     // Find sheets — already detected by content when the file was loaded
     if (!salSheetName) throw new Error('Could not find Salary Bank Advise sheet. Sheet names: ' + workbook.SheetNames.join(', '));
@@ -889,39 +922,44 @@ async function generate() {
     const otHDFC  = hasOT ? getHDFC(otMatrix) : null;
     const otNEFT  = hasOT ? getNEFT(otMatrix, yyyymmdd) : null;
 
-    // File names — 2 or 4 depending on OT sheet
-    const f1name = '275TSAL' + ddmm + getSerial(ls+1);
-    const f2name = '275TNES' + ddmm + getSerial(ls+2);
-    const f3name = hasOT ? '275TSAL' + ddmm + getSerial(ls+3) : null;
-    const f4name = hasOT ? '275TNES' + ddmm + getSerial(ls+4) : null;
+    function nextSerial() { serial += 1; return getSerial(serial); }
 
-    const f1content = buildTSALContent(salHDFC.data);
-    const f2content = buildTNESContent(salNEFT.data);
-
-    generatedFiles = [
-      { name: f1name, content: f1content, type: 'TSAL', label: 'Salary · HDFC→HDFC',
-        rows: salHDFC.data.length, total: salHDFC.data.reduce((s,r)=>s+r[2],0),
-        data: salHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: salHDFC.zeroPay, missingName: salHDFC.missingName, mismatches: salHDFC.mismatches, nameDeviations: salHDFC.nameDeviations } },
-      { name: f2name, content: f2content, type: 'TNES', label: 'Salary · HDFC→Others (NEFT)',
-        rows: salNEFT.data.length, total: salNEFT.data.reduce((s,r)=>s+r[5],0),
-        data: salNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: salNEFT.zeroPay, missingIFSC: salNEFT.missingIFSC, missingAccount: salNEFT.missingAccount, mismatches: salNEFT.mismatches, nameDeviations: salNEFT.nameDeviations } },
+    // Up to 4 possible categories. A category only becomes an actual file — and only consumes a
+    // serial number — if it has at least one extracted row. An empty category (e.g. every
+    // employee happens to be HDFC, so there's nothing for the NEFT file) is simply omitted. This
+    // is why a single run can produce anywhere from 1 to 4 files, not a fixed count.
+    const categories = [
+      { type:'TSAL', label:'Salary · HDFC→HDFC',          result: salHDFC, amountIdx: 2,
+        headers:['Account','C','Amount','Name in Bank'], build: buildTSALContent },
+      { type:'TNES', label:'Salary · HDFC→Others (NEFT)', result: salNEFT, amountIdx: 5,
+        headers:['EMP Code','Name','Account','IFSC','Type','Amount','Date'], build: buildTNESContent },
     ];
-
     if (hasOT) {
-      const f3content = buildTSALContent(otHDFC.data);
-      const f4content = buildTNESContent(otNEFT.data);
-      generatedFiles.push(
-        { name: f3name, content: f3content, type: 'TSAL', label: 'OT · HDFC→HDFC',
-          rows: otHDFC.data.length, total: otHDFC.data.reduce((s,r)=>s+r[2],0),
-          data: otHDFC.data, headers: ['Account','C','Amount','Name in Bank'], issues: { zeroPay: otHDFC.zeroPay, missingName: otHDFC.missingName, mismatches: otHDFC.mismatches, nameDeviations: otHDFC.nameDeviations } },
-        { name: f4name, content: f4content, type: 'TNES', label: 'OT · HDFC→Others (NEFT)',
-          rows: otNEFT.data.length, total: otNEFT.data.reduce((s,r)=>s+r[5],0),
-          data: otNEFT.data, headers: ['EMP Code','Name','Account','IFSC','Type','Amount','Date'], issues: { zeroPay: otNEFT.zeroPay, missingIFSC: otNEFT.missingIFSC, missingAccount: otNEFT.missingAccount, mismatches: otNEFT.mismatches, nameDeviations: otNEFT.nameDeviations } }
+      categories.push(
+        { type:'TSAL', label:'OT · HDFC→HDFC',          result: otHDFC, amountIdx: 2,
+          headers:['Account','C','Amount','Name in Bank'], build: buildTSALContent },
+        { type:'TNES', label:'OT · HDFC→Others (NEFT)', result: otNEFT, amountIdx: 5,
+          headers:['EMP Code','Name','Account','IFSC','Type','Amount','Date'], build: buildTNESContent }
       );
     }
 
+    const skippedCategories = [];
+    for (const cat of categories) {
+      if (!cat.result.data.length) { skippedCategories.push(cat.label); continue; }
+      const fname = '275' + cat.type + ddmm + nextSerial();
+      generatedFiles.push({
+        name: fname, content: cat.build(cat.result.data), type: cat.type, label: cat.label,
+        rows: cat.result.data.length, total: cat.result.data.reduce((s,r)=>s+r[cat.amountIdx],0),
+        data: cat.result.data, headers: cat.headers,
+        issues: { zeroPay: cat.result.zeroPay, missingName: cat.result.missingName,
+                  missingIFSC: cat.result.missingIFSC, missingAccount: cat.result.missingAccount,
+                  mismatches: cat.result.mismatches, nameDeviations: cat.result.nameDeviations,
+                  derivedBankName: cat.result.derivedBankName },
+      });
+    }
+
     // Update download all label
-    document.getElementById('downloadAllLabel').textContent = `Download All ${generatedFiles.length} Files`;
+    document.getElementById('downloadAllLabel').textContent = `Download All ${generatedFiles.length} File${generatedFiles.length===1?'':'s'}`;
 
     const salExcluded = countExcludedBySection(salMatrix);
     const otExcluded  = hasOT ? countExcludedBySection(otMatrix) : { HOLD: 0, CHEQUE: 0 };
@@ -930,7 +968,7 @@ async function generate() {
       CHEQUE: salExcluded.CHEQUE + otExcluded.CHEQUE,
     };
 
-    renderResults(salHDFC, salNEFT, hasOT ? otHDFC : null, hasOT ? otNEFT : null, ddmm, yyyymmdd, salSheetName, otSheetName, excludedCounts);
+    renderResults(salHDFC, salNEFT, hasOT ? otHDFC : null, hasOT ? otNEFT : null, ddmm, yyyymmdd, salSheetName, otSheetName, excludedCounts, skippedCategories);
 
   } catch(err) {
     alert('Error: ' + err.message);
@@ -944,39 +982,51 @@ async function generate() {
 // ═══════════════════════════════════════════
 //  RENDER RESULTS
 // ═══════════════════════════════════════════
-function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salSheetName, otSheetName, excludedCounts) {
+function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salSheetName, otSheetName, excludedCounts, skippedCategories) {
   const resultsEl = document.getElementById('results');
   resultsEl.style.display = 'block';
   resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const hasOT = !!otHDFC;
 
+  // Totals/rows are computed directly from the category results (always present, whether or not
+  // a file was actually written for them) — never from generatedFiles[i], since an empty category
+  // is omitted from generatedFiles and would otherwise shift every later index.
+  const salHDFCTotal = salHDFC.data.reduce((s,r)=>s+r[2],0);
+  const salNEFTTotal = salNEFT.data.reduce((s,r)=>s+r[5],0);
+  const otHDFCTotal  = hasOT ? otHDFC.data.reduce((s,r)=>s+r[2],0) : 0;
+  const otNEFTTotal  = hasOT ? otNEFT.data.reduce((s,r)=>s+r[5],0) : 0;
+
   // Meta
   const totalRows = generatedFiles.reduce((s,f)=>s+f.rows,0);
   const totalAmt  = generatedFiles.reduce((s,f)=>s+f.total,0);
   document.getElementById('resultsMeta').textContent =
-    `Payment Date: ${ddmm.slice(0,2)}/${ddmm.slice(2)} · ${totalRows} employees · ${formatINR(totalAmt)} total · ${generatedFiles.length} files`;
+    `Payment Date: ${ddmm.slice(0,2)}/${ddmm.slice(2)} · ${totalRows} employees · ${formatINR(totalAmt)} total · ${generatedFiles.length} file${generatedFiles.length===1?'':'s'}`;
 
-  // Reconciliation strip — 2 or 4 cells
+  // Reconciliation strip — 2 or 4 cells, shown even for a category with 0 rows (so the reader can
+  // see at a glance that, say, Salary NEFT was legitimately empty rather than silently missing).
   const reconStrip = document.getElementById('reconStrip');
   if (hasOT) {
     reconStrip.style.gridTemplateColumns = 'repeat(4,1fr)';
     reconStrip.innerHTML = `
-      <div class="recon-cell"><div class="recon-label">Salary HDFC</div><div class="recon-value">${formatINR(generatedFiles[0].total)}</div></div>
-      <div class="recon-cell"><div class="recon-label">Salary NEFT</div><div class="recon-value">${formatINR(generatedFiles[1].total)}</div></div>
-      <div class="recon-cell"><div class="recon-label">OT HDFC</div><div class="recon-value">${formatINR(generatedFiles[2].total)}</div></div>
-      <div class="recon-cell"><div class="recon-label">OT NEFT</div><div class="recon-value">${formatINR(generatedFiles[3].total)}</div></div>
+      <div class="recon-cell"><div class="recon-label">Salary HDFC</div><div class="recon-value">${formatINR(salHDFCTotal)}</div></div>
+      <div class="recon-cell"><div class="recon-label">Salary NEFT</div><div class="recon-value">${formatINR(salNEFTTotal)}</div></div>
+      <div class="recon-cell"><div class="recon-label">OT HDFC</div><div class="recon-value">${formatINR(otHDFCTotal)}</div></div>
+      <div class="recon-cell"><div class="recon-label">OT NEFT</div><div class="recon-value">${formatINR(otNEFTTotal)}</div></div>
     `;
   } else {
     reconStrip.style.gridTemplateColumns = 'repeat(2,1fr)';
     reconStrip.innerHTML = `
-      <div class="recon-cell"><div class="recon-label">Salary HDFC</div><div class="recon-value">${formatINR(generatedFiles[0].total)}</div></div>
-      <div class="recon-cell"><div class="recon-label">Salary NEFT</div><div class="recon-value">${formatINR(generatedFiles[1].total)}</div></div>
+      <div class="recon-cell"><div class="recon-label">Salary HDFC</div><div class="recon-value">${formatINR(salHDFCTotal)}</div></div>
+      <div class="recon-cell"><div class="recon-label">Salary NEFT</div><div class="recon-value">${formatINR(salNEFTTotal)}</div></div>
     `;
   }
 
   // File cards
   const filesGrid = document.getElementById('filesGrid');
+  if (!generatedFiles.length) {
+    filesGrid.innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--ink-4);font-size:13px;">No files were generated — every category came up empty after filtering (zero-pay, HOLD/CHEQUE exclusions, etc.). Check the Discrepancy Report below.</div>`;
+  } else {
   filesGrid.innerHTML = generatedFiles.map((f,i) => { const issueCount = countIssues(f); return `
     <div class="file-card">
       <div class="file-card-head">
@@ -1007,10 +1057,10 @@ function renderResults(salHDFC, salNEFT, otHDFC, otNEFT, ddmm, yyyymmdd, salShee
         </div>
       </div>
     </div>
-  `; }).join('');
+  `; }).join(''); }
 
   // Discrepancies
-  const allDiscrep = buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts);
+  const allDiscrep = buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, skippedCategories);
   const discrepGrid = document.getElementById('discrepGrid');
   const discrepCount = document.getElementById('discrepCount');
   const issueCount = allDiscrep.filter(d=>d.type!=='ok').length;
@@ -1049,11 +1099,12 @@ function togglePreview(btn) {
 //  FLAGS HOVER POPUP
 // ═══════════════════════════════════════════
 const FLAG_LABELS = {
-  zeroPay:        'Zero Net Pay — excluded',
-  missingName:    'Missing Account No.',
-  missingIFSC:    'Missing IFSC',
-  missingAccount: 'Missing Account No.',
-  mismatches:     'IFSC / Bank Name mismatch',
+  zeroPay:         'Zero Net Pay — excluded',
+  missingName:     'Missing Account No.',
+  missingIFSC:     'Missing IFSC',
+  missingAccount:  'Missing Account No.',
+  mismatches:      'IFSC / Bank Name mismatch',
+  derivedBankName: 'BANK NAME derived from IFSC',
 };
 
 function buildFlagsPopupHTML(f) {
@@ -1110,7 +1161,7 @@ function renderPreviewTable(f) {
   </table>`;
 }
 
-function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts) {
+function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts, skippedCategories) {
   const items = [];
   const hasOT = !!otHDFC;
 
@@ -1124,6 +1175,14 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts) {
       title: `${holdCount + chequeCount} employee(s) excluded from all files`,
       detail: `${parts.join(' · ')} — these employees are excluded from every output file regardless of their BANK NAME column, since HOLD/CHEQUE sections are identified by their section marker, not by bank type.`,
       tagLabel: 'HOLD/CHEQUE · Excluded from all files'
+    });
+  }
+
+  if (skippedCategories && skippedCategories.length) {
+    items.push({ type:'info', icon:'⏭️',
+      title: `${skippedCategories.length} of ${hasOT?4:2} possible file(s) skipped — no data in that category`,
+      detail: 'Not written and no serial number consumed for: ' + skippedCategories.join(', ') + '. A run can produce anywhere from 1 to 4 files depending on what the sheet actually contains.',
+      tagLabel: 'Skipped · Category empty'
     });
   }
 
@@ -1171,6 +1230,20 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts) {
     });
   }
 
+  const allDerivedBankName = [
+    ...salHDFC.derivedBankName.map(d=>'SAL-HDFC: '+d),
+    ...salNEFT.derivedBankName.map(d=>'SAL-NEFT: '+d),
+    ...(hasOT ? otHDFC.derivedBankName.map(d=>'OT-HDFC: '+d) : []),
+    ...(hasOT ? otNEFT.derivedBankName.map(d=>'OT-NEFT: '+d) : []),
+  ];
+  if (allDerivedBankName.length) {
+    items.push({ type:'info', icon:'🔎',
+      title: `${allDerivedBankName.length} employee(s) had BANK NAME derived from IFSC`,
+      detail: 'No BANK NAME column/value was provided for these rows, so it was inferred from the IFSC code (blank IFSC is treated as HDFC-to-HDFC): ' + allDerivedBankName.slice(0,6).join(' · ') + (allDerivedBankName.length>6?` · +${allDerivedBankName.length-6} more`:''),
+      tagLabel: 'BANK NAME derived · Please verify'
+    });
+  }
+
   const allZeroPay = [
     ...salHDFC.zeroPay.map(e=>'SAL-HDFC: '+e),
     ...salNEFT.zeroPay.map(e=>'SAL-NEFT: '+e),
@@ -1209,11 +1282,12 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts) {
     });
   }
 
-  // Amount reconciliation
-  const salHDFCTotal = generatedFiles[0]?.total || 0;
-  const salNEFTTotal = generatedFiles[1]?.total || 0;
-  const otHDFCTotal  = hasOT ? (generatedFiles[2]?.total || 0) : 0;
-  const otNEFTTotal  = hasOT ? (generatedFiles[3]?.total || 0) : 0;
+  // Amount reconciliation — computed directly from category results, not generatedFiles[i],
+  // since an empty category is omitted from generatedFiles and would shift indices.
+  const salHDFCTotal = salHDFC.data.reduce((s,r)=>s+r[2],0);
+  const salNEFTTotal = salNEFT.data.reduce((s,r)=>s+r[5],0);
+  const otHDFCTotal  = hasOT ? otHDFC.data.reduce((s,r)=>s+r[2],0) : 0;
+  const otNEFTTotal  = hasOT ? otNEFT.data.reduce((s,r)=>s+r[5],0) : 0;
 
   items.push({ type:'ok', icon:'✅',
     title: 'File totals reconciled successfully',
@@ -1223,16 +1297,17 @@ function buildDiscrepancies(salHDFC, salNEFT, otHDFC, otNEFT, excludedCounts) {
     tagLabel: 'Reconciled ✓'
   });
 
-  const salEmp = (generatedFiles[0]?.rows||0) + (generatedFiles[1]?.rows||0);
-  const otEmp  = hasOT ? ((generatedFiles[2]?.rows||0) + (generatedFiles[3]?.rows||0)) : 0;
+  const salEmp = salHDFC.data.length + salNEFT.data.length;
+  const otEmp  = hasOT ? (otHDFC.data.length + otNEFT.data.length) : 0;
+  const fileCount = generatedFiles.length;
   items.push({ type:'info', icon:'ℹ️',
     title: hasOT
       ? `${salEmp} salary employees · ${otEmp} OT employees`
       : `${salEmp} salary employees · No OT sheet found`,
     detail: hasOT
-      ? `HDFC employees: ${generatedFiles[0].rows} (sal) + ${generatedFiles[2].rows} (OT) · NEFT employees: ${generatedFiles[1].rows} (sal) + ${generatedFiles[3].rows} (OT)`
-      : `HDFC employees: ${generatedFiles[0].rows} (sal) · NEFT employees: ${generatedFiles[1].rows} (sal) · 2 files generated`,
-    tagLabel: hasOT ? 'Summary · 4 files' : 'Summary · 2 files'
+      ? `HDFC employees: ${salHDFC.data.length} (sal) + ${otHDFC.data.length} (OT) · NEFT employees: ${salNEFT.data.length} (sal) + ${otNEFT.data.length} (OT)`
+      : `HDFC employees: ${salHDFC.data.length} (sal) · NEFT employees: ${salNEFT.data.length} (sal) · ${fileCount} file${fileCount===1?'':'s'} generated`,
+    tagLabel: `Summary · ${fileCount} file${fileCount===1?'':'s'}`
   });
 
   return items;
